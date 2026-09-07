@@ -1,0 +1,49 @@
+
+.rotate {
+    position: absolute;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    width: 1.5em;
+    font-weight: bold;
+    -ms-transform: rotate(-90deg);
+    transform: rotate(-90deg);
+    margin-top: 520px;
+    margin-left: -30px;
+}
+
+
+h1.watermark {
+    position: absolute;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    width: 1.5em;
+    font-weight: bold;
+    -ms-transform: rotate(-25deg); 
+    transform: rotate(-25deg);
+    margin-top: 450px;
+    margin-left: 20px;
+    opacity: 0.35;
+    letter-spacing: 3px;
+}
+
+.logo_watermark{
+    position: absolute;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    width: 1.5em;
+    font-weight: bold;
+    margin-top: 50px;
+    margin-left: 100px;
+    opacity: 0.17;
+}
+
+.div-float-right{
+    float: right;
+}
+
+@page {
+    size: A4;
+}
