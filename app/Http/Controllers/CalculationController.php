@@ -20,6 +20,7 @@ class CalculationController extends Controller
     public function __construct(
         protected GpfCalculationEngine $calculationEngine,
         protected GpfWorkflowService $workflowService,
+        protected \App\Services\Integration\OracleMasterBridge $oracleBridge,
     ) {}
 
     public function show(string $caseId): Response
@@ -57,28 +58,60 @@ class CalculationController extends Controller
                 'is_adjustment' => $r->is_adjustment,
             ]);
         } else {
-            // Seed a default 12-month ledger for interactive preview
-            $openingBalance = 450000.00;
-            $startDate = Carbon::create(2023, 4, 1);
-            for ($i = 0; $i < 12; $i++) {
-                $mDate = (clone $startDate)->addMonths($i);
-                $rate = InterestRateSlab::getRateForDate($mDate->toDateString()) ?? 7.1000;
-                $monthlyLedger[] = [
-                    'financial_year' => '2023-2024',
-                    'calendar_month' => $mDate->format('Y-m'),
-                    'pay_slip_date' => $mDate->format('Y-m-d'),
-                    'accounting_month' => $i + 1,
-                    'opening_balance' => $openingBalance,
-                    'deposit' => 15000.00,
-                    'withdrawal' => 0.00,
-                    'rate_of_interest' => $rate,
-                    'interest_on_deposit' => true,
-                    'progressive_balance' => $openingBalance + 15000,
-                    'actual_interest' => round((($openingBalance + 15000) * $rate) / 1200, 2),
-                    'delay_interest' => 0.00,
-                    'is_cut_month' => false,
-                    'is_adjustment' => false,
-                ];
+            // Check if real subscription ledger exists in Oracle 11g
+            $oracleSubs = $this->oracleBridge->getSubscriptions($case->series_code, $case->account_no);
+            
+            if (!empty($oracleSubs)) {
+                $openingBalance = 0.00;
+                $runningProgressive = 0.00;
+                foreach ($oracleSubs as $idx => $s) {
+                    $pDate = Carbon::parse($s['pay_slip_date']);
+                    $rate = InterestRateSlab::getRateForDate($pDate->toDateString()) ?? 7.1000;
+                    $deposit = (float) $s['deposit'];
+                    $withdrawal = (float) $s['withdrawal'];
+                    $runningProgressive += ($deposit - $withdrawal);
+
+                    $monthlyLedger[] = [
+                        'financial_year' => $s['financial_year'] ?: '2023-2024',
+                        'calendar_month' => $pDate->format('Y-m'),
+                        'pay_slip_date' => $pDate->format('Y-m-d'),
+                        'accounting_month' => ($idx % 12) + 1,
+                        'opening_balance' => $openingBalance,
+                        'deposit' => $deposit,
+                        'withdrawal' => $withdrawal,
+                        'rate_of_interest' => $rate,
+                        'interest_on_deposit' => $s['interest_allowed'],
+                        'progressive_balance' => $runningProgressive,
+                        'actual_interest' => round(($runningProgressive * $rate) / 1200, 2),
+                        'delay_interest' => 0.00,
+                        'is_cut_month' => false,
+                        'is_adjustment' => false,
+                    ];
+                }
+            } else {
+                // Seed a default 12-month ledger for interactive preview
+                $openingBalance = 450000.00;
+                $startDate = Carbon::create(2023, 4, 1);
+                for ($i = 0; $i < 12; $i++) {
+                    $mDate = (clone $startDate)->addMonths($i);
+                    $rate = InterestRateSlab::getRateForDate($mDate->toDateString()) ?? 7.1000;
+                    $monthlyLedger[] = [
+                        'financial_year' => '2023-2024',
+                        'calendar_month' => $mDate->format('Y-m'),
+                        'pay_slip_date' => $mDate->format('Y-m-d'),
+                        'accounting_month' => $i + 1,
+                        'opening_balance' => $openingBalance,
+                        'deposit' => 15000.00,
+                        'withdrawal' => 0.00,
+                        'rate_of_interest' => $rate,
+                        'interest_on_deposit' => true,
+                        'progressive_balance' => $openingBalance + 15000,
+                        'actual_interest' => round((($openingBalance + 15000) * $rate) / 1200, 2),
+                        'delay_interest' => 0.00,
+                        'is_cut_month' => false,
+                        'is_adjustment' => false,
+                    ];
+                }
             }
         }
 
