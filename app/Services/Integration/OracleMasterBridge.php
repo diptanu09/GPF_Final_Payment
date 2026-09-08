@@ -28,7 +28,7 @@ class OracleMasterBridge
     /**
      * Get or create active Oracle 11g OCI connection
      */
-    protected function getConnection(): mixed
+    public function getConnection(): mixed
     {
         if ($this->connection) {
             return $this->connection;
@@ -93,7 +93,7 @@ class OracleMasterBridge
                 SELECT SERIES_ID AS ID, SERIES_DESCR AS NAME 
                 FROM VLCS.MM_GPF_SERIES 
                 WHERE SERIES_DESCR IS NOT NULL 
-                ORDER BY SERIES_DESCR ASC
+                ORDER BY TO_NUMBER(SERIES_ID) ASC
             ");
             
             if (@oci_execute($stmt)) {
@@ -101,6 +101,7 @@ class OracleMasterBridge
                 while ($row = oci_fetch_assoc($stmt)) {
                     $series[] = [
                         'id' => trim($row['ID']),
+                        'code' => trim($row['NAME']),
                         'name' => trim($row['NAME']) . ' (Series ' . trim($row['ID']) . ')',
                     ];
                 }
@@ -117,7 +118,7 @@ class OracleMasterBridge
     }
 
     /**
-     * Retrieve list of DDOs from Oracle 11g (VLCS.MM_DDO)
+     * Retrieve list of DDOs from Oracle 11g (VLCS.STATE_DDO / VLCS.MM_DDO)
      */
     public function getDdoList(): Collection
     {
@@ -127,12 +128,12 @@ class OracleMasterBridge
         }
 
         try {
-            $this->validateTableAccess('MM_DDO');
+            $this->validateTableAccess('STATE_DDO');
             $stmt = oci_parse($conn, "
-                SELECT DDO_CODE AS ID, DDO_DESIGNATION AS NAME, DDO_ADDRESS AS ADDRESS 
-                FROM VLCS.MM_DDO 
-                WHERE DDO_DESIGNATION IS NOT NULL 
-                ORDER BY DDO_DESIGNATION ASC
+                SELECT DDO_CODE AS ID, DDO_DESG AS NAME, DDO_TREASURY_CODE AS TREASURY_CODE, PHONE_NO, DDO_EMAIL_ID 
+                FROM VLCS.STATE_DDO 
+                WHERE DDO_DESG IS NOT NULL 
+                ORDER BY DDO_DESG ASC
             ");
             
             if (@oci_execute($stmt)) {
@@ -141,7 +142,9 @@ class OracleMasterBridge
                     $ddos[] = [
                         'id' => trim($row['ID']),
                         'name' => trim($row['NAME']),
-                        'address' => isset($row['ADDRESS']) ? trim($row['ADDRESS']) : '',
+                        'treasury_code' => isset($row['TREASURY_CODE']) ? trim($row['TREASURY_CODE']) : '',
+                        'phone' => isset($row['PHONE_NO']) ? trim($row['PHONE_NO']) : '',
+                        'email' => isset($row['DDO_EMAIL_ID']) ? trim($row['DDO_EMAIL_ID']) : '',
                     ];
                 }
                 oci_free_statement($stmt);
@@ -169,7 +172,7 @@ class OracleMasterBridge
         try {
             $this->validateTableAccess('STATE_TREASURY');
             $stmt = oci_parse($conn, "
-                SELECT TRES_CODE AS ID, TRES_NAME AS NAME 
+                SELECT TRES_CODE AS ID, TRES_NAME AS NAME, EMAIL_ID 
                 FROM VLCS.STATE_TREASURY 
                 WHERE TRES_NAME IS NOT NULL 
                 ORDER BY TRES_NAME ASC
@@ -181,6 +184,7 @@ class OracleMasterBridge
                     $treasuries[] = [
                         'id' => trim($row['ID']),
                         'name' => trim($row['NAME']),
+                        'email' => isset($row['EMAIL_ID']) ? trim($row['EMAIL_ID']) : '',
                     ];
                 }
                 oci_free_statement($stmt);
@@ -196,7 +200,7 @@ class OracleMasterBridge
     }
 
     /**
-     * Look up subscriber service profile by Series ID and Account Number (VLCS.MM_EMPLOYEE & gpffp.GPF_APPLICATION)
+     * Look up subscriber details from VLCS.GP_ACCOUNTS, VLCS.MM_EMPLOYEE, and gpffp.GPF_APPLICATION
      */
     public function lookupSubscriber(string $seriesCode, string $accountNo): array
     {
@@ -206,71 +210,160 @@ class OracleMasterBridge
 
         if ($conn) {
             try {
-                $this->validateTableAccess('MM_EMPLOYEE');
+                $this->validateTableAccess('GP_ACCOUNTS');
                 
-                // Query employee master from VLCS
+                // 1. Check VLCS.GP_ACCOUNTS (the primary master used in legacy subscriber_details_by_account_no.php)
                 $query = "
+                    SELECT 
+                        SERIES_ID, ACCOUNT_NO, ACC_HOLDER_NAME, EMP_CODE, BENE_CODE, 
+                        MOBILE, ACCOUNT_CLOSED_TAG, DATE_OF_CLOSURE, OP_BALANCE_WITHDRAWL,
+                        CL_BAL_WITHDRAWL, FIN_YEAR_CODE
+                    FROM VLCS.GP_ACCOUNTS
+                    WHERE SERIES_ID = :series AND ACCOUNT_NO = :acct
+                      AND ROWNUM = 1
+                ";
+
+                $stmt = oci_parse($conn, $query);
+                oci_bind_by_name($stmt, ':series', $cleanSeries);
+                oci_bind_by_name($stmt, ':acct', $cleanAccount);
+
+                $acc = null;
+                if (@oci_execute($stmt)) {
+                    $acc = oci_fetch_assoc($stmt);
+                    oci_free_statement($stmt);
+                }
+
+                if ($acc) {
+                    $isClosed = (strtoupper(trim($acc['ACCOUNT_CLOSED_TAG'] ?? '')) === 'Y');
+                    $closureDate = $acc['DATE_OF_CLOSURE'] ? date('d-m-Y', strtotime($acc['DATE_OF_CLOSURE'])) : null;
+                    $warningMessage = $isClosed ? "Notice: GPF account was closed on {$closureDate}." : null;
+
+                    // Fetch employee master / application data for designation and address
+                    $empCode = trim($acc['EMP_CODE'] ?? '');
+                    $empData = null;
+                    if ($empCode) {
+                        $empStmt = oci_parse($conn, "
+                            SELECT EMP_NAME, EMP_DESIGNATION, DATE_OF_BIRTH, DATE_OF_JOIN, 
+                                   FATHER_HUSBANT_NAME, EMP_MAIL_ADDRESS 
+                            FROM VLCS.MM_EMPLOYEE 
+                            WHERE EMP_CODE = :empcode AND ROWNUM = 1
+                        ");
+                        oci_bind_by_name($empStmt, ':empcode', $empCode);
+                        if (@oci_execute($empStmt)) {
+                            $empData = oci_fetch_assoc($empStmt);
+                            oci_free_statement($empStmt);
+                        }
+                    }
+
+                    // Check previous application in gpffp.GPF_APPLICATION
+                    $appStmt = oci_parse($conn, "
+                        SELECT TITLE, DESG_TITLE, DESIGNATION, SPOUSE_NAME, RELATION, 
+                               PERSONAL_ADDRESS, DDO_CODE, TREASURY_CODE, DATE_OF_EFFECT, LAST_FUND_DEDUCTION
+                        FROM gpffp.GPF_APPLICATION
+                        WHERE ACCOUNT_NO = :acct AND (SERIES_ID = :series OR :series_null IS NULL) AND ROWNUM = 1
+                    ");
+                    oci_bind_by_name($appStmt, ':acct', $cleanAccount);
+                    oci_bind_by_name($appStmt, ':series', $cleanSeries);
+                    oci_bind_by_name($appStmt, ':series_null', $cleanSeries);
+                    $appData = null;
+                    if (@oci_execute($appStmt)) {
+                        $appData = oci_fetch_assoc($appStmt);
+                        oci_free_statement($appStmt);
+                    }
+
+                    $rawName = trim($acc['ACC_HOLDER_NAME'] ?? ($empData['EMP_NAME'] ?? ''));
+                    $designation = $appData['DESIGNATION'] ?? ($empData['EMP_DESIGNATION'] ?? 'Government Employee');
+                    $personalAddress = $appData['PERSONAL_ADDRESS'] ?? ($empData['EMP_MAIL_ADDRESS'] ?? 'Agartala, Tripura');
+                    $ddoCode = $appData['DDO_CODE'] ?? '';
+                    $treasuryCode = $appData['TREASURY_CODE'] ?? '';
+
+                    // If DDO exists but Treasury is empty, lookup Treasury from VLCS.STATE_DDO
+                    if ($ddoCode && !$treasuryCode) {
+                        $ddoStmt = oci_parse($conn, "SELECT DDO_TREASURY_CODE FROM VLCS.STATE_DDO WHERE DDO_CODE = :ddocode AND ROWNUM = 1");
+                        oci_bind_by_name($ddoStmt, ':ddocode', $ddoCode);
+                        if (@oci_execute($ddoStmt)) {
+                            $ddoRow = oci_fetch_assoc($ddoStmt);
+                            $treasuryCode = $ddoRow['DDO_TREASURY_CODE'] ?? '';
+                            oci_free_statement($ddoStmt);
+                        }
+                    }
+
+                    return [
+                        'found_in_oracle' => true,
+                        'is_closed' => $isClosed,
+                        'closure_date' => $closureDate,
+                        'warning' => $warningMessage,
+                        'series_code' => $cleanSeries,
+                        'account_no' => $cleanAccount,
+                        'subscriber_name' => $rawName,
+                        'name_title' => $appData['TITLE'] ?? 'Shri',
+                        'designation_title' => $appData['DESG_TITLE'] ?? 'Mr',
+                        'designation' => $designation ?: 'Government Employee',
+                        'employee_code' => $acc['EMP_CODE'] ?: '',
+                        'beneficiary_code' => $acc['BENE_CODE'] ?: '',
+                        'mobile_no' => $acc['MOBILE'] ?: '',
+                        'opening_balance' => (float) ($acc['OP_BALANCE_WITHDRAWL'] ?? 0),
+                        'closing_balance' => (float) ($acc['CL_BAL_WITHDRAWL'] ?? 0),
+                        'closing_fin_year' => $acc['FIN_YEAR_CODE'] ?? null,
+                        'personal_address' => $personalAddress ?: 'Agartala, Tripura',
+                        'ddo_code' => $ddoCode,
+                        'treasury_code' => $treasuryCode,
+                        'spouse_name' => $appData['SPOUSE_NAME'] ?? ($empData['FATHER_HUSBANT_NAME'] ?? ''),
+                        'spouse_relation' => $appData['RELATION'] ?? 'Spouse',
+                        'dob' => $empData['DATE_OF_BIRTH'] ?? null,
+                        'doj' => $empData['DATE_OF_JOIN'] ?? null,
+                        'last_fund_deduction' => $appData['LAST_FUND_DEDUCTION'] ?? null,
+                    ];
+                }
+
+                // 2. Fallback check on VLCS.MM_EMPLOYEE
+                $empQuery = "
                     SELECT 
                         EMP_CODE, SERIES_ID, EMP_NAME, EMP_DESIGNATION, 
                         DATE_OF_BIRTH, DATE_OF_JOIN, FATHER_HUSBANT_NAME, 
-                        EMP_MAIL_ADDRESS, OLD_EMP_CODE, DEPT_CODE
+                        EMP_MAIL_ADDRESS, OLD_EMP_CODE
                     FROM VLCS.MM_EMPLOYEE
                     WHERE (EMP_CODE = :acct1 OR OLD_EMP_CODE = :acct2)
                       AND (SERIES_ID = :series OR :series_null IS NULL)
                       AND ROWNUM = 1
                 ";
 
-                $stmt = oci_parse($conn, $query);
-                oci_bind_by_name($stmt, ':acct1', $cleanAccount);
-                oci_bind_by_name($stmt, ':acct2', $cleanAccount);
-                oci_bind_by_name($stmt, ':series', $cleanSeries);
-                oci_bind_by_name($stmt, ':series_null', $cleanSeries);
+                $stmt2 = oci_parse($conn, $empQuery);
+                oci_bind_by_name($stmt2, ':acct1', $cleanAccount);
+                oci_bind_by_name($stmt2, ':acct2', $cleanAccount);
+                oci_bind_by_name($stmt2, ':series', $cleanSeries);
+                oci_bind_by_name($stmt2, ':series_null', $cleanSeries);
 
-                if (@oci_execute($stmt)) {
-                    $emp = oci_fetch_assoc($stmt);
-                    oci_free_statement($stmt);
+                if (@oci_execute($stmt2)) {
+                    $emp = oci_fetch_assoc($stmt2);
+                    oci_free_statement($stmt2);
 
                     if ($emp) {
-                        // Check if previous application exists in GPFFP
-                        $appQuery = "
-                            SELECT PERSONAL_ADDRESS, DDO_CODE, TREASURY_CODE, SPOUSE_NAME, RELATION, LAST_FUND_DEDUCTION
-                            FROM gpffp.GPF_APPLICATION
-                            WHERE ACCOUNT_NO = :acct AND (SERIES_ID = :series OR :series_null IS NULL) AND ROWNUM = 1
-                        ";
-                        $appStmt = oci_parse($conn, $appQuery);
-                        oci_bind_by_name($appStmt, ':acct', $cleanAccount);
-                        oci_bind_by_name($appStmt, ':series', $cleanSeries);
-                        oci_bind_by_name($appStmt, ':series_null', $cleanSeries);
-                        
-                        $appData = null;
-                        if (@oci_execute($appStmt)) {
-                            $appData = oci_fetch_assoc($appStmt);
-                            oci_free_statement($appStmt);
-                        }
-
-                        // Clean raw names (strip legacy leading 0/prefixes if present)
-                        $rawName = trim($emp['EMP_NAME'] ?? '');
-                        $cleanedName = preg_replace('/^[0-9\s]+/', '', $rawName);
-
                         return [
                             'found_in_oracle' => true,
+                            'is_closed' => false,
+                            'closure_date' => null,
+                            'warning' => null,
                             'series_code' => $emp['SERIES_ID'] ?: $cleanSeries,
                             'account_no' => $emp['EMP_CODE'] ?: $cleanAccount,
-                            'subscriber_name' => $cleanedName ?: $rawName,
+                            'subscriber_name' => trim($emp['EMP_NAME'] ?? ''),
                             'name_title' => 'Shri',
                             'designation_title' => 'Mr',
-                            'designation' => ($emp['EMP_DESIGNATION'] && $emp['EMP_DESIGNATION'] !== 'n/a') ? trim($emp['EMP_DESIGNATION']) : 'Government Employee',
-                            'employee_code' => 'EMP' . str_pad($cleanAccount, 6, '0', STR_PAD_LEFT),
-                            'beneficiary_code' => 'BEN' . str_pad($cleanAccount, 6, '0', STR_PAD_LEFT),
+                            'designation' => trim($emp['EMP_DESIGNATION'] ?? '') ?: 'Government Employee',
+                            'employee_code' => $emp['EMP_CODE'] ?: '',
+                            'beneficiary_code' => '',
                             'mobile_no' => '',
-                            'personal_address' => $appData['PERSONAL_ADDRESS'] ?? ($emp['EMP_MAIL_ADDRESS'] ?: 'Agartala, Tripura'),
-                            'ddo_code' => $appData['DDO_CODE'] ?? '1001',
-                            'treasury_code' => $appData['TREASURY_CODE'] ?? '01',
-                            'spouse_name' => $appData['SPOUSE_NAME'] ?? ($emp['FATHER_HUSBANT_NAME'] ?: ''),
-                            'spouse_relation' => $appData['RELATION'] ?? 'Spouse',
+                            'opening_balance' => 0.00,
+                            'closing_balance' => 0.00,
+                            'closing_fin_year' => null,
+                            'personal_address' => $emp['EMP_MAIL_ADDRESS'] ?: 'Agartala, Tripura',
+                            'ddo_code' => '',
+                            'treasury_code' => '',
+                            'spouse_name' => $emp['FATHER_HUSBANT_NAME'] ?: '',
+                            'spouse_relation' => 'Spouse',
                             'dob' => $emp['DATE_OF_BIRTH'] ?? null,
                             'doj' => $emp['DATE_OF_JOIN'] ?? null,
-                            'last_fund_deduction' => $appData['LAST_FUND_DEDUCTION'] ?? null,
+                            'last_fund_deduction' => null,
                         ];
                     }
                 }
@@ -282,27 +375,33 @@ class OracleMasterBridge
         // Fallback default structure
         return [
             'found_in_oracle' => false,
+            'is_closed' => false,
+            'closure_date' => null,
+            'warning' => null,
             'series_code' => $cleanSeries,
             'account_no' => $cleanAccount,
-            'subscriber_name' => 'Sri Subscriber ' . $cleanAccount,
+            'subscriber_name' => '',
             'name_title' => 'Shri',
             'designation_title' => 'Mr',
-            'designation' => 'Government Employee',
-            'employee_code' => 'EMP' . str_pad($cleanAccount, 6, '0', STR_PAD_LEFT),
-            'beneficiary_code' => 'BEN' . str_pad($cleanAccount, 6, '0', STR_PAD_LEFT),
+            'designation' => '',
+            'employee_code' => '',
+            'beneficiary_code' => '',
             'mobile_no' => '',
-            'personal_address' => 'Agartala, West Tripura, PIN: 799001',
-            'ddo_code' => '1001',
-            'treasury_code' => '01',
+            'opening_balance' => 0.00,
+            'closing_balance' => 0.00,
+            'closing_fin_year' => null,
+            'personal_address' => '',
+            'ddo_code' => '',
+            'treasury_code' => '',
             'spouse_name' => '',
             'spouse_relation' => 'Spouse',
         ];
     }
 
     /**
-     * Retrieve historic monthly subscriptions from Oracle 11g (gpffp.GPF_SUBSCRIPTION)
+     * Retrieve historic monthly subscriptions from Oracle 11g (gpffp.GPF_SUBSCRIPTION & VLCS tables)
      */
-    public function getSubscriptions(string $seriesCode, string $accountNo): array
+    public function getSubscriptions(string $seriesCode, string $accountNo, ?string $regdNo = null): array
     {
         $conn = $this->getConnection();
         if (!$conn) {
@@ -318,14 +417,21 @@ class OracleMasterBridge
                 SELECT 
                     REGD_NO, SERIES_ID, ACCOUNT_NO, FIN_YEAR_CODE, 
                     ABSTRACT_NO, VOUCHER_NO, PAY_SLIP_DATE, INTEREST_DATE, 
-                    SUBSCRIPTION_AMT, REFUND_AMT, WITHDRAWAL_AMT, ADVANCE_AMT, 
+                    NVL(SUBSCRIPTION_AMT, 0) AS SUBSCRIPTION_AMT, 
+                    NVL(REFUND_AMT, 0) AS REFUND_AMT, 
+                    NVL(WITHDRAWAL_AMT, 0) AS WITHDRAWAL_AMT, 
+                    NVL(ADVANCE_AMT, 0) AS ADVANCE_AMT, 
+                    NVL(OTHERS_AMT, 0) AS OTHERS_AMT,
+                    NVL(ADJUSTMENT_NO, '0') AS ADJUSTMENT_NO,
                     INT_ALLOW
                 FROM gpffp.GPF_SUBSCRIPTION
-                WHERE ACCOUNT_NO = :acct AND (SERIES_ID = :series OR :series_null IS NULL)
-                ORDER BY PAY_SLIP_DATE ASC
+                WHERE (REGD_NO = :regd OR (ACCOUNT_NO = :acct AND (SERIES_ID = :series OR :series_null IS NULL)))
+                ORDER BY PAY_SLIP_DATE ASC, INTEREST_DATE ASC
             ";
 
             $stmt = oci_parse($conn, $query);
+            $regdParam = $regdNo ?: '0';
+            oci_bind_by_name($stmt, ':regd', $regdParam);
             oci_bind_by_name($stmt, ':acct', $cleanAccount);
             oci_bind_by_name($stmt, ':series', $cleanSeries);
             oci_bind_by_name($stmt, ':series_null', $cleanSeries);
@@ -333,18 +439,26 @@ class OracleMasterBridge
             if (@oci_execute($stmt)) {
                 $rows = [];
                 while ($row = oci_fetch_assoc($stmt)) {
+                    $subAmt = (float) ($row['SUBSCRIPTION_AMT'] ?? 0);
+                    $refAmt = (float) ($row['REFUND_AMT'] ?? 0);
+                    $othAmt = (float) ($row['OTHERS_AMT'] ?? 0);
+                    $wthAmt = (float) ($row['WITHDRAWAL_AMT'] ?? 0);
+                    $advAmt = (float) ($row['ADVANCE_AMT'] ?? 0);
+
                     $rows[] = [
                         'financial_year' => $row['FIN_YEAR_CODE'],
                         'pay_slip_date' => $row['PAY_SLIP_DATE'],
-                        'interest_date' => $row['INTEREST_DATE'],
-                        'deposit' => (float) ($row['SUBSCRIPTION_AMT'] ?? 0) + (float) ($row['REFUND_AMT'] ?? 0),
-                        'subscription' => (float) ($row['SUBSCRIPTION_AMT'] ?? 0),
-                        'refund' => (float) ($row['REFUND_AMT'] ?? 0),
-                        'withdrawal' => (float) ($row['WITHDRAWAL_AMT'] ?? 0),
-                        'advance' => (float) ($row['ADVANCE_AMT'] ?? 0),
-                        'voucher_no' => $row['VOUCHER_NO'],
-                        'abstract_no' => $row['ABSTRACT_NO'],
-                        'interest_allowed' => ($row['INT_ALLOW'] === 'Y'),
+                        'interest_date' => $row['INTEREST_DATE'] ?? $row['PAY_SLIP_DATE'],
+                        'deposit' => $subAmt + $refAmt + $othAmt,
+                        'subscription' => $subAmt,
+                        'refund' => $refAmt,
+                        'others' => $othAmt,
+                        'withdrawal' => $wthAmt + $advAmt,
+                        'advance' => $advAmt,
+                        'voucher_no' => $row['VOUCHER_NO'] ?? '',
+                        'abstract_no' => $row['ABSTRACT_NO'] ?? '',
+                        'adjustment_no' => ($row['ADJUSTMENT_NO'] !== '0') ? $row['ADJUSTMENT_NO'] : null,
+                        'interest_allowed' => ($row['INT_ALLOW'] !== 'N'),
                     ];
                 }
                 oci_free_statement($stmt);
@@ -358,16 +472,66 @@ class OracleMasterBridge
     }
 
     /**
+     * Retrieve missing credits from VLCS.GP_MISSING_CREDIT
+     */
+    public function getMissingCredits(string $seriesCode, string $accountNo): array
+    {
+        $conn = $this->getConnection();
+        if (!$conn) {
+            return [];
+        }
+
+        try {
+            $this->validateTableAccess('GP_MISSING_CREDIT');
+            $cleanAccount = preg_replace('/[^0-9]/', '', $accountNo);
+            $cleanSeries = trim($seriesCode);
+
+            $query = "
+                SELECT SLIP_DATE, FIN_YEAR_CODE, CLEAR_TAG, CLEAR_FIN_YEAR_CODE 
+                FROM VLCS.GP_MISSING_CREDIT 
+                WHERE SERIES_ID = :series AND ACCOUNT_NO = :acct 
+                  AND NVL(CLEAR_TAG, 'N') != 'Y'
+                ORDER BY SLIP_DATE ASC
+            ";
+
+            $stmt = oci_parse($conn, $query);
+            oci_bind_by_name($stmt, ':series', $cleanSeries);
+            oci_bind_by_name($stmt, ':acct', $cleanAccount);
+
+            if (@oci_execute($stmt)) {
+                $rows = [];
+                while ($row = oci_fetch_assoc($stmt)) {
+                    $rows[] = [
+                        'slip_date' => $row['SLIP_DATE'],
+                        'fin_year_code' => $row['FIN_YEAR_CODE'],
+                        'clear_tag' => $row['CLEAR_TAG'],
+                    ];
+                }
+                oci_free_statement($stmt);
+                return $rows;
+            }
+        } catch (Exception $e) {
+            Log::warning('OracleMasterBridge::getMissingCredits error: ' . $e->getMessage());
+        }
+
+        return [];
+    }
+
+    /**
      * Fallback Series
      */
     protected function fallbackSeries(): Collection
     {
         return collect([
-            ['id' => '16', 'name' => 'GRP - General Provident Fund (Series 16)'],
-            ['id' => '18', 'name' => 'ADC - Autonomous District Council (Series 18)'],
-            ['id' => '19', 'name' => 'EGRP - Education Department (Series 19)'],
-            ['id' => '20', 'name' => 'AGRP - Agriculture Department (Series 20)'],
-            ['id' => '21', 'name' => 'OGRP - Other Departments (Series 21)'],
+            ['id' => '1', 'code' => 'AIS', 'name' => 'AIS - All India Service (Series 1)'],
+            ['id' => '2', 'code' => 'AGR', 'name' => 'AGR - Agriculture (Series 2)'],
+            ['id' => '3', 'code' => 'COOP', 'name' => 'COOP - Cooperation (Series 3)'],
+            ['id' => '10', 'code' => 'EDN', 'name' => 'EDN - Education (Series 10)'],
+            ['id' => '16', 'code' => 'GRP', 'name' => 'GRP - General Provident Fund (Series 16)'],
+            ['id' => '18', 'code' => 'ADC', 'name' => 'ADC - Autonomous District Council (Series 18)'],
+            ['id' => '19', 'code' => 'EGRP', 'name' => 'EGRP - Education Dept (Series 19)'],
+            ['id' => '20', 'code' => 'AGRP', 'name' => 'AGRP - Agriculture Dept (Series 20)'],
+            ['id' => '21', 'code' => 'OGRP', 'name' => 'OGRP - Other Depts (Series 21)'],
         ]);
     }
 
@@ -377,11 +541,10 @@ class OracleMasterBridge
     protected function fallbackDdos(): Collection
     {
         return collect([
-            ['id' => '14768', 'name' => 'SPORTS OFFICER, TRIPURA SPORTS SCHOOL, KABIRAJTILLA'],
-            ['id' => '14769', 'name' => 'ASSTT. DIRECTOR OF ARDD(BL) , BISHALGARH'],
-            ['id' => '14770', 'name' => 'H.M.,MURABARI HIGH SCHOOL,BISHALGARH'],
-            ['id' => '14771', 'name' => 'SUB-DIVISIONAL JUDICIAL MAGISTRATE, BISHALGARH'],
-            ['id' => '14772', 'name' => 'DY. COMMANDANT, 1ST BN. TSR, GAKULNAGAR, BISHALGARH'],
+            ['id' => '6016', 'name' => 'Head Master, K. C. Girls Class-XII School, Kamalpur', 'treasury_code' => 'TPA06'],
+            ['id' => '6017', 'name' => 'Headmaster, Kalacheri HS School, Kamalpur', 'treasury_code' => 'TPA06'],
+            ['id' => '6018', 'name' => 'Head Master, Kamalpur Boys HS School', 'treasury_code' => 'TPA06'],
+            ['id' => '14768', 'name' => 'SPORTS OFFICER, TRIPURA SPORTS SCHOOL, KABIRAJTILLA', 'treasury_code' => 'TPA08'],
         ]);
     }
 
@@ -391,12 +554,12 @@ class OracleMasterBridge
     protected function fallbackTreasuries(): Collection
     {
         return collect([
-            ['id' => 'TPA01', 'name' => 'Kanchanpur Sub Treasury'],
-            ['id' => 'TPA02', 'name' => 'Dharmanagar Treasury'],
-            ['id' => 'TPA08', 'name' => 'Agartala Treasury No. I'],
-            ['id' => 'TPA23', 'name' => 'Jampuijala Sub Treasury'],
-            ['id' => 'TPA24', 'name' => 'Karbook Sub Treasury'],
-            ['id' => 'TPAAC', 'name' => 'AC(ISS) Agartala'],
+            ['id' => 'TPA01', 'name' => 'Kanchanpur Sub Treasury', 'email' => ''],
+            ['id' => 'TPA02', 'name' => 'Dharmanagar Treasury', 'email' => ''],
+            ['id' => 'TPA06', 'name' => 'Kamalpur Sub Treasury', 'email' => 'stokmnp@yahoo.com'],
+            ['id' => 'TPA08', 'name' => 'Agartala Treasury No. I', 'email' => ''],
+            ['id' => 'TPA23', 'name' => 'Jampuijala Sub Treasury', 'email' => ''],
+            ['id' => 'TPA24', 'name' => 'Karbook Sub Treasury', 'email' => ''],
         ]);
     }
 }

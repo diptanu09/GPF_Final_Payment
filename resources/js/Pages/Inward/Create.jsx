@@ -11,7 +11,10 @@ import {
     MapPin,
     ArrowLeft,
     CheckCircle2,
-    Sparkles
+    AlertTriangle,
+    Sparkles,
+    ShieldAlert,
+    Coins
 } from 'lucide-react';
 
 export default function Create({ series_list, ddo_list, treasuries, case_types }) {
@@ -38,11 +41,13 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
         employee_code: '',
         beneficiary_code: '',
         spouse_name: '',
-        spouse_relation: '',
+        spouse_relation: 'Spouse',
     });
 
     const [isLookingUp, setIsLookingUp] = useState(false);
     const [lookupFound, setLookupFound] = useState(false);
+    const [closureWarning, setClosureWarning] = useState(null);
+    const [balanceInfo, setBalanceInfo] = useState(null);
 
     const handleLookup = async () => {
         if (!data.series_code || !data.account_no) {
@@ -51,29 +56,59 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
         }
 
         setIsLookingUp(true);
+        setClosureWarning(null);
+        setBalanceInfo(null);
         try {
-            const res = await fetch(`/inward/lookup?series_code=${data.series_code}&account_no=${data.account_no}`);
+            const res = await fetch(`/inward/lookup?series_code=${encodeURIComponent(data.series_code)}&account_no=${encodeURIComponent(data.account_no)}`);
             if (res.ok) {
                 const sub = await res.json();
-                setData((prev) => ({
-                    ...prev,
-                    subscriber_name: sub.subscriber_name || prev.subscriber_name,
-                    designation: sub.designation || prev.designation,
-                    personal_address: sub.personal_address || prev.personal_address,
-                    employee_code: sub.employee_code || prev.employee_code,
-                    beneficiary_code: sub.beneficiary_code || prev.beneficiary_code,
-                    mobile_no: sub.mobile_no || prev.mobile_no,
-                    ddo_code: sub.ddo_code || prev.ddo_code,
-                    treasury_code: sub.treasury_code || prev.treasury_code,
-                    last_fund_deduction: sub.last_fund_deduction || prev.last_fund_deduction,
-                }));
-                setLookupFound(true);
+                if (sub.found_in_oracle) {
+                    setData((prev) => ({
+                        ...prev,
+                        subscriber_name: sub.subscriber_name || prev.subscriber_name,
+                        name_title: sub.name_title || prev.name_title,
+                        designation: sub.designation || prev.designation,
+                        personal_address: sub.personal_address || prev.personal_address,
+                        employee_code: sub.employee_code || prev.employee_code,
+                        beneficiary_code: sub.beneficiary_code || prev.beneficiary_code,
+                        mobile_no: sub.mobile_no || prev.mobile_no,
+                        ddo_code: sub.ddo_code || prev.ddo_code,
+                        treasury_code: sub.treasury_code || prev.treasury_code,
+                        spouse_name: sub.spouse_name || prev.spouse_name,
+                        spouse_relation: sub.spouse_relation || prev.spouse_relation,
+                        last_fund_deduction: sub.last_fund_deduction || prev.last_fund_deduction,
+                    }));
+                    setLookupFound(true);
+
+                    if (sub.warning || sub.is_closed) {
+                        setClosureWarning(sub.warning || `Account was closed on ${sub.closure_date}`);
+                    }
+
+                    if (sub.opening_balance > 0 || sub.closing_balance > 0) {
+                        setBalanceInfo({
+                            opBalance: sub.opening_balance,
+                            clBalance: sub.closing_balance,
+                            finYear: sub.closing_fin_year,
+                        });
+                    }
+                } else {
+                    alert('No matching subscriber found in Oracle 11g VLC master. You can enter details manually.');
+                }
             }
         } catch (err) {
             console.error('Lookup failed', err);
         } finally {
             setIsLookingUp(false);
         }
+    };
+
+    const handleDdoChange = (ddoCode) => {
+        const selectedDdo = ddo_list.find((d) => String(d.id) === String(ddoCode));
+        setData((prev) => ({
+            ...prev,
+            ddo_code: ddoCode,
+            treasury_code: selectedDdo?.treasury_code || prev.treasury_code,
+        }));
     };
 
     const submit = (e) => {
@@ -99,11 +134,35 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                                 Register New GPF Inward Docket
                             </h2>
                             <p className="text-xs text-slate-400">
-                                Enter subscriber details or fetch directly from Oracle 11g VLC subscriber master.
+                                Enter subscriber details or fetch directly from Oracle 11g VLC (VLCS.GP_ACCOUNTS / VLCS.STATE_DDO).
                             </p>
                         </div>
                     </div>
                 </div>
+
+                {closureWarning && (
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-amber-300 animate-fadeIn">
+                        <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-400" />
+                        <div>
+                            <p className="text-sm font-semibold">Account Closure Alert</p>
+                            <p className="text-xs text-amber-200/90">{closureWarning}</p>
+                            <p className="text-[11px] text-amber-400/70 mt-1">If this is a residual, revised or corrigendum case, please set the appropriate Case Settlement Type below.</p>
+                        </div>
+                    </div>
+                )}
+
+                {balanceInfo && (
+                    <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-between text-indigo-300">
+                        <div className="flex items-center gap-2">
+                            <Coins className="w-4 h-4 text-indigo-400" />
+                            <span className="text-xs font-semibold">Legacy VLC Master Ledger Record:</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                            <span>Opening Balance: <strong className="text-white font-mono">₹{balanceInfo.opBalance.toLocaleString('en-IN')}</strong></span>
+                            <span>Closing Balance: <strong className="text-emerald-400 font-mono">₹{balanceInfo.clBalance.toLocaleString('en-IN')}</strong></span>
+                        </div>
+                    </div>
+                )}
 
                 <form onSubmit={submit} className="space-y-6">
                     {/* Step 1: GPF Series & Account Lookup */}
@@ -111,7 +170,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                             <h3 className="text-sm font-bold text-indigo-400 flex items-center gap-2">
                                 <Sparkles className="w-4 h-4" />
-                                <span>1. Legacy Oracle 11g Account Lookup</span>
+                                <span>1. Legacy Oracle 11g Account Lookup (VLCS.GP_ACCOUNTS)</span>
                             </h3>
                             {lookupFound && (
                                 <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
@@ -129,11 +188,11 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                                 <select
                                     value={data.series_code}
                                     onChange={(e) => {
-                                        const selected = series_list.find((s) => s.id == e.target.value);
+                                        const selected = series_list.find((s) => String(s.id) === String(e.target.value));
                                         setData((prev) => ({
                                             ...prev,
                                             series_code: e.target.value,
-                                            series_name: selected?.name || '',
+                                            series_name: selected?.code || selected?.name || '',
                                         }));
                                     }}
                                     className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -142,7 +201,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                                     <option value="">Select GPF Series</option>
                                     {series_list.map((s) => (
                                         <option key={s.id} value={s.id}>
-                                            {s.id} - {s.name}
+                                            {s.name}
                                         </option>
                                     ))}
                                 </select>
@@ -157,7 +216,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                                     type="text"
                                     value={data.account_no}
                                     onChange={(e) => setData('account_no', e.target.value)}
-                                    placeholder="e.g. 10456"
+                                    placeholder="e.g. 5937"
                                     className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono font-semibold"
                                     required
                                 />
@@ -259,12 +318,43 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                             </div>
 
                             <div>
+                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                                    Pension / Closure Category <span className="text-rose-400">*</span>
+                                </label>
+                                <select
+                                    value={data.pension_type_id}
+                                    onChange={(e) => setData('pension_type_id', e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    required
+                                >
+                                    <option value="1">1 - Superannuation Pension</option>
+                                    <option value="2">2 - Death In Service (DLIS Admissible)</option>
+                                    <option value="3">3 - Voluntary Retirement</option>
+                                    <option value="4">4 - Resignation</option>
+                                    <option value="5">5 - Transfer / Inter-Governmental</option>
+                                    <option value="6">6 - Permanent Absorption</option>
+                                    <option value="7">7 - Family Pension (DLIS Admissible)</option>
+                                </select>
+                            </div>
+
+                            <div>
                                 <label className="block text-xs font-medium text-slate-300 mb-1.5">HRMS Employee Code</label>
                                 <input
                                     type="text"
                                     value={data.employee_code}
                                     onChange={(e) => setData('employee_code', e.target.value)}
-                                    placeholder="e.g. 102934"
+                                    placeholder="e.g. 106356"
+                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-slate-300 mb-1.5">Beneficiary Code</label>
+                                <input
+                                    type="text"
+                                    value={data.beneficiary_code}
+                                    onChange={(e) => setData('beneficiary_code', e.target.value)}
+                                    placeholder="e.g. 216984"
                                     className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                                 />
                             </div>
@@ -275,19 +365,36 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                                     type="text"
                                     value={data.mobile_no}
                                     onChange={(e) => setData('mobile_no', e.target.value)}
-                                    placeholder="e.g. 9436123456"
+                                    placeholder="e.g. 9862523603"
                                     className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">Last Fund Deduction Date</label>
+                                <label className="block text-xs font-medium text-slate-300 mb-1.5">Spouse / Father Name</label>
                                 <input
-                                    type="date"
-                                    value={data.last_fund_deduction}
-                                    onChange={(e) => setData('last_fund_deduction', e.target.value)}
+                                    type="text"
+                                    value={data.spouse_name}
+                                    onChange={(e) => setData('spouse_name', e.target.value)}
+                                    placeholder="Spouse or Legal Next of Kin"
                                     className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-medium text-slate-300 mb-1.5">Relation</label>
+                                <select
+                                    value={data.spouse_relation}
+                                    onChange={(e) => setData('spouse_relation', e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    <option value="Spouse">Spouse (Husband / Wife)</option>
+                                    <option value="Father">Father</option>
+                                    <option value="Mother">Mother</option>
+                                    <option value="Son">Son</option>
+                                    <option value="Daughter">Daughter</option>
+                                    <option value="Other">Other Legal Heir</option>
+                                </select>
                             </div>
 
                             <div className="sm:col-span-3">
@@ -298,6 +405,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                                     value={data.personal_address}
                                     onChange={(e) => setData('personal_address', e.target.value)}
                                     rows={2}
+                                    placeholder="Full mailing address for authority dispatch"
                                     className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 />
@@ -310,7 +418,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                         <div className="border-b border-slate-800 pb-3">
                             <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
                                 <Building2 className="w-4 h-4 text-indigo-400" />
-                                <span>3. Drawing & Disbursing Officer (DDO) & Treasury</span>
+                                <span>3. Drawing & Disbursing Officer (DDO) & Treasury (VLCS.STATE_DDO)</span>
                             </h3>
                         </div>
 
@@ -321,7 +429,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                                 </label>
                                 <select
                                     value={data.ddo_code}
-                                    onChange={(e) => setData('ddo_code', e.target.value)}
+                                    onChange={(e) => handleDdoChange(e.target.value)}
                                     className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 >
