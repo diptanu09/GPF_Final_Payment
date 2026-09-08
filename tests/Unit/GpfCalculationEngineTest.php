@@ -1,0 +1,135 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Enums\CaseType;
+use App\Enums\CaseWorkflowStatus;
+use App\Models\CaseNominee;
+use App\Models\InwardCase;
+use App\Models\User;
+use App\Services\Calculation\CutoffRuleResolver;
+use App\Services\Calculation\GpfCalculationEngine;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class GpfCalculationEngineTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected GpfCalculationEngine $engine;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed();
+        $this->engine = new GpfCalculationEngine(new CutoffRuleResolver());
+    }
+
+    public function test_calculation_engine_computes_correct_statutory_interest_and_balance(): void
+    {
+        $user = User::first();
+
+        $case = InwardCase::create([
+            'registration_no' => '20230112345',
+            'series_code' => '01',
+            'account_no' => '12345',
+            'subscriber_name_cache' => 'Test Subscriber',
+            'name_title' => 'Shri',
+            'designation_title' => 'Mr',
+            'designation' => 'Teacher',
+            'case_type' => CaseType::NORMAL_SUPERANNUATION,
+            'pension_type_id' => '1',
+            'ddo_code' => '1001',
+            'treasury_code' => '01',
+            'event_date' => '2024-03-31',
+            'personal_address' => 'Agartala',
+            'current_status' => CaseWorkflowStatus::DRAFT,
+            'created_by' => $user->id,
+        ]);
+
+        $ledgerEntries = [
+            'opening_balance' => 100000.00,
+            'opening_fin_year' => '2023-2024',
+            'monthly_entries' => [
+                [
+                    'financial_year' => '2023-2024',
+                    'calendar_month' => '2023-04',
+                    'pay_slip_date' => '2023-04-01',
+                    'accounting_month' => 1,
+                    'deposit' => 10000.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => true,
+                ],
+                [
+                    'financial_year' => '2023-2024',
+                    'calendar_month' => '2023-05',
+                    'pay_slip_date' => '2023-05-01',
+                    'accounting_month' => 2,
+                    'deposit' => 10000.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => true,
+                ],
+            ],
+        ];
+
+        $run = $this->engine->calculate($case, $ledgerEntries, $user->id);
+
+        $this->assertNotNull($run);
+        $this->assertEquals(100000.00, (float) $run->opening_balance_amount);
+        $this->assertEquals(20000.00, (float) $run->total_subscriptions);
+        $this->assertGreaterThan(0, (float) $run->total_interest_computed);
+        $this->assertGreaterThan(120000.00, (float) $run->final_closing_balance);
+    }
+
+    public function test_nominee_share_partitioning_reconciles_odd_paisa_remainder(): void
+    {
+        $user = User::first();
+
+        $case = InwardCase::create([
+            'registration_no' => '20230299999',
+            'series_code' => '02',
+            'account_no' => '99999',
+            'subscriber_name_cache' => 'Deceased Employee',
+            'name_title' => 'Late',
+            'designation_title' => 'Mr',
+            'designation' => 'Inspector',
+            'case_type' => CaseType::DEATH_IN_SERVICE,
+            'pension_type_id' => '2',
+            'ddo_code' => '1001',
+            'treasury_code' => '01',
+            'event_date' => '2023-08-15',
+            'personal_address' => 'Agartala',
+            'current_status' => CaseWorkflowStatus::DRAFT,
+            'created_by' => $user->id,
+        ]);
+
+        $n1 = CaseNominee::create([
+            'inward_case_id' => $case->id,
+            'nominee_name' => 'Wife (Primary)',
+            'relationship' => 'Spouse',
+            'share_percentage' => 33.33,
+        ]);
+
+        $n2 = CaseNominee::create([
+            'inward_case_id' => $case->id,
+            'nominee_name' => 'Son 1',
+            'relationship' => 'Son',
+            'share_percentage' => 33.33,
+        ]);
+
+        $n3 = CaseNominee::create([
+            'inward_case_id' => $case->id,
+            'nominee_name' => 'Son 2',
+            'relationship' => 'Son',
+            'share_percentage' => 33.34,
+        ]);
+
+        $totalPayable = 100000.00;
+        $this->engine->partitionNomineeShares($case, $totalPayable);
+
+        $allocatedSum = CaseNominee::where('inward_case_id', $case->id)->sum('allocated_amount');
+        $this->assertEquals($totalPayable, (float) $allocatedSum);
+    }
+}

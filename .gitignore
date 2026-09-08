@@ -1,50 +1,27 @@
-# Environment & Secrets
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-*.pfx
-*.p12
-*.cer
-*.crt
-
-# Runtime PDF outputs & generated files (keep folder structure via .gitkeep)
-pdf_files/**/*.pdf
-*.pdf
-!pdf_files/**/.gitkeep
-
-# Library caches & temporary data
-assets/lib/phpqrcode/cache/*.dat
-assets/lib/phpqrcode/cache/*.png
-!assets/lib/phpqrcode/cache/.gitkeep
-assets/lib/pdflib/mpdf/mpdf/tmp/ttfontdata/*
-!assets/lib/pdflib/mpdf/mpdf/tmp/ttfontdata/.gitkeep
-
-# Logs & Session files
 *.log
-error_log
-logs/
-sess_*
-
-# Temporary & editor swap files
-*.tmp
-*.temp
-*~
-*.swp
-*.swo
-
-# IDE & Editor configs
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-
-# Operating System files
 .DS_Store
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+/.codex
+/.cursor/
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/build
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+_ide_helper.php
+Homestead.json
+Homestead.yaml
 Thumbs.db
-desktop.ini
-
-# Package manager vendors (if managed externally)
-# vendor/
-# node_modules/
