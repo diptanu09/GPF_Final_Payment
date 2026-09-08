@@ -117,7 +117,7 @@ export default function Login() {
                         <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-center mb-3">
                             Quick Demo Credentials
                         </p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                             <button
                                 type="button"
                                 onClick={() => quickFill('admin')}
@@ -144,8 +144,16 @@ export default function Login() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => quickFill('deo_inward')}
+                                onClick={() => quickFill('da_fund')}
                                 className="px-2.5 py-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700 text-slate-300 text-left transition"
+                            >
+                                <div className="font-semibold text-purple-400">da_fund</div>
+                                <div className="text-[10px] text-slate-500">Dealing Assistant</div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => quickFill('deo_inward')}
+                                className="px-2.5 py-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-800 border border-slate-700 text-slate-300 text-left transition col-span-2 sm:col-span-1"
                             >
                                 <div className="font-semibold text-amber-400">deo_inward</div>
                                 <div className="text-[10px] text-slate-500">DEO (Inward)</div>

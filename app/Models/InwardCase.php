@@ -97,7 +97,7 @@ class InwardCase extends Model
 
     public function latestCalculationRun(): HasOne
     {
-        return $this->hasOne(CalculationRun::class)->latestOfMany();
+        return $this->hasOne(CalculationRun::class)->latest('created_at');
     }
 
     public function nominees(): HasMany
@@ -112,7 +112,7 @@ class InwardCase extends Model
 
     public function latestAuthority(): HasOne
     {
-        return $this->hasOne(Authority::class)->latestOfMany();
+        return $this->hasOne(Authority::class)->latest('created_at');
     }
 
     public function workflowHistories(): HasMany
