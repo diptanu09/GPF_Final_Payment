@@ -35,22 +35,22 @@ class User extends Authenticatable
 
     public function isSuperAdmin(): bool
     {
-        return $this->role === 'super_admin';
+        return in_array($this->role, ['super_admin', 'admin']);
     }
 
     public function isApprover(): bool
     {
-        return in_array($this->role, ['super_admin', 'approver']);
+        return in_array($this->role, ['super_admin', 'admin', 'approver']);
     }
 
     public function isChecker(): bool
     {
-        return in_array($this->role, ['super_admin', 'approver', 'checker']);
+        return in_array($this->role, ['super_admin', 'admin', 'approver', 'checker']);
     }
 
     public function isDealingAssistant(): bool
     {
-        return in_array($this->role, ['super_admin', 'approver', 'checker', 'dealing_assistant']);
+        return in_array($this->role, ['super_admin', 'admin', 'approver', 'checker', 'dealing_assistant', 'deo']);
     }
 
     public function inwardCases(): \Illuminate\Database\Eloquent\Relations\HasMany
@@ -61,9 +61,10 @@ class User extends Authenticatable
     public function roleLabel(): string
     {
         return match ($this->role) {
-            'super_admin' => 'Super Admin',
+            'super_admin', 'admin' => 'Administrator / Director',
             'approver' => 'Senior Accounts Officer (Sr. AO)',
             'checker' => 'Assistant Accounts Officer (AAO)',
+            'dispatch' => 'Outward Dispatch',
             'dealing_assistant' => 'Dealing Assistant (DA)',
             default => 'Data Entry Operator (DEO)',
         };

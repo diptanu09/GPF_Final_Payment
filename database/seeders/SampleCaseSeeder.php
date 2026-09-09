@@ -19,10 +19,10 @@ class SampleCaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $deo = User::where('username', 'deo_inward')->first();
-        $da = User::where('username', 'da_fund')->first();
-        $aao = User::where('username', 'aao')->first();
-        $srao = User::where('username', 'srao')->first();
+        $deo = User::where('username', 'deeksha')->orWhere('role', 'deo')->first() ?? User::first();
+        $da = User::where('username', 'kalipada')->orWhere('role', 'deo')->first() ?? $deo;
+        $aao = User::where('username', 'anjana')->orWhere('role', 'checker')->first() ?? $deo;
+        $srao = User::where('username', 'rkdb')->orWhere('role', 'approver')->first() ?? $deo;
 
         // -------------------------------------------------------------
         // Case 1: Draft / Inward Registered (Superannuation)

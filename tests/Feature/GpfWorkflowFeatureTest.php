@@ -26,7 +26,7 @@ class GpfWorkflowFeatureTest extends TestCase
     public function test_complete_gpf_settlement_workflow_lifecycle(): void
     {
         $deo = User::where('role', 'deo')->first();
-        $da = User::where('role', 'dealing_assistant')->first();
+        $da = User::where('username', 'kalipada')->orWhere('role', 'deo')->first() ?? $deo;
         $aao = User::where('role', 'checker')->first();
         $srao = User::where('role', 'approver')->first();
 
