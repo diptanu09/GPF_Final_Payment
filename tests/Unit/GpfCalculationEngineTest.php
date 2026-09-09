@@ -132,4 +132,52 @@ class GpfCalculationEngineTest extends TestCase
         $allocatedSum = CaseNominee::where('inward_case_id', $case->id)->sum('allocated_amount');
         $this->assertEquals($totalPayable, (float) $allocatedSum);
     }
+
+    public function test_dlis_admissible_for_family_pension_case(): void
+    {
+        $user = User::first();
+
+        $case = InwardCase::create([
+            'registration_no' => '20230288888',
+            'series_code' => '02',
+            'account_no' => '88888',
+            'subscriber_name_cache' => 'Late Sukhendu Bhowmik',
+            'name_title' => 'Late',
+            'designation_title' => 'Mr',
+            'designation' => 'Inspector',
+            'case_type' => CaseType::FAMILY_PENSION,
+            'pension_type_id' => '2',
+            'pension_type_name' => 'Family Pension (FAM)',
+            'ddo_code' => '1001',
+            'treasury_code' => '01',
+            'event_date' => '2023-08-15',
+            'personal_address' => 'Agartala',
+            'current_status' => CaseWorkflowStatus::DRAFT,
+            'created_by' => $user->id,
+        ]);
+
+        $ledgerEntries = [
+            'opening_balance' => 80000.00,
+            'opening_fin_year' => '2023-2024',
+            'monthly_entries' => [
+                [
+                    'financial_year' => '2023-2024',
+                    'calendar_month' => '2023-04',
+                    'pay_slip_date' => '2023-04-01',
+                    'accounting_month' => 1,
+                    'deposit' => 5000.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => true,
+                ],
+            ],
+        ];
+
+        $run = $this->engine->calculate($case, $ledgerEntries, $user->id);
+
+        $this->assertNotNull($run);
+        $this->assertTrue((bool) $run->dlis_admissible);
+        $this->assertEquals(10000.00, (float) $run->dlis_amount);
+        $this->assertGreaterThan(85000.00, (float) $run->final_closing_balance);
+    }
 }

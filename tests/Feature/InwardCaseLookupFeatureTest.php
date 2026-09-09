@@ -55,4 +55,41 @@ class InwardCaseLookupFeatureTest extends TestCase
             'spouse_relation',
         ]);
     }
+
+    public function test_deo_can_create_family_pension_inward_case(): void
+    {
+        $deo = User::where('role', 'deo')->first();
+
+        $payload = [
+            'series_code' => '01',
+            'series_name' => 'AIS',
+            'account_no' => '54321',
+            'subscriber_name' => 'Manish Paul',
+            'name_title' => 'Late',
+            'designation_title' => 'Mr',
+            'designation' => 'Assistant Teacher',
+            'case_type' => 'FAM',
+            'pension_type_id' => '2',
+            'ddo_code' => '6016',
+            'treasury_code' => 'TPA06',
+            'event_date' => '2023-11-20',
+            'personal_address' => 'Kamalpur, Dhalai, Tripura',
+            'mobile_no' => '9876543210',
+            'spouse_name' => 'Rita Paul',
+            'spouse_relation' => 'Wife',
+        ];
+
+        $response = $this->actingAs($deo)->post('/inward', $payload);
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('inward_cases', [
+            'account_no' => '54321',
+            'case_type' => 'FAM',
+            'pension_type_id' => '2',
+            'pension_type_name' => 'Family (FAM)',
+            'name_title' => 'Late',
+            'spouse_name' => 'Rita Paul',
+        ]);
+    }
 }

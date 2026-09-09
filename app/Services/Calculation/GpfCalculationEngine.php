@@ -45,7 +45,9 @@ class GpfCalculationEngine
                 'cutoff_date' => $cutoffDate->toDateString(),
                 'interest_allowed_upto' => $cutoffDate->toDateString(),
                 'computed_by' => $userId,
-                'dlis_admissible' => in_array($case->pension_type_id, config('gpf.dlis.eligible_pension_types', [2, 7])),
+                'dlis_admissible' => in_array((int) $case->pension_type_id, config('gpf.dlis.eligible_pension_types', [2, 7])) 
+                    || $case->case_type === \App\Enums\CaseType::FAMILY_PENSION 
+                    || $case->case_type === \App\Enums\CaseType::DEATH_IN_SERVICE,
             ]);
 
             $months = collect($ledgerEntries['monthly_entries'] ?? []);

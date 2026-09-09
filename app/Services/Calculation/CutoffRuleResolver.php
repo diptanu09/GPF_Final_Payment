@@ -17,7 +17,7 @@ class CutoffRuleResolver
 
         return match ($case->case_type) {
             CaseType::NORMAL_SUPERANNUATION => $eventDate->copy()->endOfMonth(),
-            CaseType::DEATH_IN_SERVICE => $this->resolveDeathCutoff($case, $eventDate),
+            CaseType::FAMILY_PENSION, CaseType::DEATH_IN_SERVICE => $this->resolveDeathCutoff($case, $eventDate),
             CaseType::RESIGNATION => $eventDate->copy()->endOfMonth(),
             CaseType::LTA_SPECIAL => $case->date_of_lta ? Carbon::parse($case->date_of_lta)->endOfMonth() : $eventDate->copy()->endOfMonth(),
             default => $eventDate->copy()->endOfMonth(),

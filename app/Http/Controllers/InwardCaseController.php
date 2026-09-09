@@ -77,6 +77,7 @@ class InwardCaseController extends Controller
             'series_list' => $this->oracleBridge->getSeriesList(),
             'ddo_list' => $this->oracleBridge->getDdoList(),
             'treasuries' => $this->oracleBridge->getTreasuries(),
+            'pension_types' => $this->oracleBridge->getPensionTypes(),
             'case_types' => collect(CaseType::cases())->map(fn ($t) => [
                 'id' => $t->value,
                 'name' => $t->label(),
@@ -117,6 +118,10 @@ class InwardCaseController extends Controller
         $cleanAccount = preg_replace('/[^0-9]/', '', $validated['account_no']);
         $registrationNo = $year . $formatSeries . $cleanAccount;
 
+        $pensionTypes = $this->oracleBridge->getPensionTypes();
+        $selectedPension = $pensionTypes->firstWhere('id', (string) $validated['pension_type_id']);
+        $pensionTypeName = $selectedPension['name'] ?? ($validated['pension_type_id'] === '2' ? 'Family Pension (FAM)' : 'Superannuation (SUP)');
+
         $inwardCase = InwardCase::create([
             'registration_no' => $registrationNo,
             'diary_number' => $validated['diary_number'] ?? ('INW/' . $year . '/' . rand(1000, 9999)),
@@ -130,6 +135,7 @@ class InwardCaseController extends Controller
             'designation' => $validated['designation'],
             'case_type' => CaseType::from($validated['case_type']),
             'pension_type_id' => $validated['pension_type_id'],
+            'pension_type_name' => $pensionTypeName,
             'section' => $validated['section'] ?? 'Fund Section I',
             'ddo_code' => $validated['ddo_code'],
             'treasury_code' => $validated['treasury_code'],

@@ -211,6 +211,47 @@ class OracleMasterBridge
     }
 
     /**
+     * Retrieve Pension Types from Oracle 11g (MAS_PENSION_TYPE)
+     */
+    public function getPensionTypes(): Collection
+    {
+        $conn = $this->getConnection();
+        if (!$conn) {
+            return $this->fallbackPensionTypes();
+        }
+
+        try {
+            $this->validateTableAccess('MAS_PENSION_TYPE');
+            $stmt = oci_parse($conn, "
+                SELECT PENSION_ID AS ID, PENSION_SHORT_DESCR AS CODE, PENSION_LONG_DESCR AS NAME 
+                FROM MAS_PENSION_TYPE 
+                ORDER BY TO_NUMBER(PENSION_ID) ASC
+            ");
+            
+            if (@oci_execute($stmt)) {
+                $types = [];
+                while ($row = oci_fetch_assoc($stmt)) {
+                    $types[] = [
+                        'id' => trim((string) $row['ID']),
+                        'code' => trim($row['CODE']),
+                        'name' => trim($row['NAME']) . ' (' . trim($row['CODE']) . ')',
+                        'short_descr' => trim($row['CODE']),
+                        'long_descr' => trim($row['NAME']),
+                    ];
+                }
+                oci_free_statement($stmt);
+                if (!empty($types)) {
+                    return collect($types);
+                }
+            }
+        } catch (Exception $e) {
+            Log::warning('OracleMasterBridge::getPensionTypes error: ' . $e->getMessage());
+        }
+
+        return $this->fallbackPensionTypes();
+    }
+
+    /**
      * Look up subscriber details from VLCS.GP_ACCOUNTS, VLCS.GP_APPLICATIONS, gpffp.GPF_APPLICATION, gpffp.LTA_APPLICATION, and VLCS.MM_EMPLOYEE
      */
     public function lookupSubscriber(string $seriesCode, string $accountNo): array
@@ -878,6 +919,39 @@ class OracleMasterBridge
             ['id' => 'TPA08', 'name' => 'Agartala Treasury No. I', 'email' => ''],
             ['id' => 'TPA23', 'name' => 'Jampuijala Sub Treasury', 'email' => ''],
             ['id' => 'TPA24', 'name' => 'Karbook Sub Treasury', 'email' => ''],
+        ]);
+    }
+
+    /**
+     * Fallback Pension Types
+     */
+    protected function fallbackPensionTypes(): Collection
+    {
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('mas_pension_type')) {
+                $rows = \Illuminate\Support\Facades\DB::table('mas_pension_type')
+                    ->orderByRaw('pension_id::numeric ASC')
+                    ->get();
+                if ($rows->isNotEmpty()) {
+                    return $rows->map(fn ($r) => [
+                        'id' => trim((string) $r->pension_id),
+                        'code' => trim($r->pension_short_descr),
+                        'name' => trim($r->pension_long_descr) . ' (' . trim($r->pension_short_descr) . ')',
+                        'short_descr' => trim($r->pension_short_descr),
+                        'long_descr' => trim($r->pension_long_descr),
+                    ]);
+                }
+            }
+        } catch (\Throwable) {}
+
+        return collect([
+            ['id' => '1', 'code' => 'SUP', 'name' => 'Superannuation (SUP)', 'short_descr' => 'SUP', 'long_descr' => 'Superannuation'],
+            ['id' => '2', 'code' => 'FAM', 'name' => 'Family Pension (FAM)', 'short_descr' => 'FAM', 'long_descr' => 'Family'],
+            ['id' => '3', 'code' => 'VOL', 'name' => 'Voluntary Retirement (VOL)', 'short_descr' => 'VOL', 'long_descr' => 'Voluntary'],
+            ['id' => '4', 'code' => 'DISM', 'name' => 'Dismissal (DISM)', 'short_descr' => 'DISM', 'long_descr' => 'Dismissal'],
+            ['id' => '5', 'code' => 'SUSP', 'name' => 'Suspension (SUSP)', 'short_descr' => 'SUSP', 'long_descr' => 'Suspension'],
+            ['id' => '6', 'code' => 'BLTR', 'name' => 'Balance Transfer (BLTR)', 'short_descr' => 'BLTR', 'long_descr' => 'Balance Transfer'],
+            ['id' => '7', 'code' => 'MISN', 'name' => 'Missing (MISN)', 'short_descr' => 'MISN', 'long_descr' => 'Missing'],
         ]);
     }
 }

@@ -145,9 +145,12 @@
 
         <p><strong>Subject: Authority for Final Payment of General Provident Fund balance in respect of {{ $case->name_title }} {{ $case->subscriber_name_cache }}, {{ $case->designation }}.</strong></p>
 
-        <p>Sir/Madam,</p>
         <p style="text-indent: 30px; text-align: justify;">
-            I am to convey the sanction and authority for final withdrawal of accumulated General Provident Fund balance at credit of <strong>{{ $case->name_title }} {{ $case->subscriber_name_cache }}</strong>, holding GPF Account No. <strong>{{ $case->formatted_gpf_account }}</strong>, who has retired/demised on <strong>{{ $case->event_date ? $case->event_date->format('d/m/Y') : 'N/A' }}</strong>.
+            @if($case->case_type === \App\Enums\CaseType::FAMILY_PENSION || $case->case_type === \App\Enums\CaseType::DEATH_IN_SERVICE || (string)$case->pension_type_id === '2')
+                I am to convey the sanction and authority for final withdrawal and payment of accumulated General Provident Fund balance at credit of Late <strong>{{ $case->subscriber_name_cache }}</strong>, holding GPF Account No. <strong>{{ $case->formatted_gpf_account }}</strong>, who demised on <strong>{{ $case->event_date ? $case->event_date->format('d/m/Y') : 'N/A' }}</strong>. The whole certified amount is authorized for disbursement to the eligible family pension beneficiary / legal nominee: <strong>{{ $case->spouse_name ?: 'the legal nominee(s)' }}</strong> ({{ $case->spouse_relation ?? 'Spouse/Legal Heir' }}).
+            @else
+                I am to convey the sanction and authority for final withdrawal of accumulated General Provident Fund balance at credit of <strong>{{ $case->name_title }} {{ $case->subscriber_name_cache }}</strong>, holding GPF Account No. <strong>{{ $case->formatted_gpf_account }}</strong>, who has retired on <strong>{{ $case->event_date ? $case->event_date->format('d/m/Y') : 'N/A' }}</strong>.
+            @endif
         </p>
 
         <table class="financial-table">

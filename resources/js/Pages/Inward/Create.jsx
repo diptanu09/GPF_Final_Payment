@@ -17,7 +17,7 @@ import {
     Coins
 } from 'lucide-react';
 
-export default function Create({ series_list, ddo_list, treasuries, case_types }) {
+export default function Create({ series_list, ddo_list, treasuries, case_types, pension_types = [] }) {
     const { data, setData, post, processing, errors } = useForm({
         series_code: '',
         series_name: '',
@@ -43,6 +43,24 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
         spouse_name: '',
         spouse_relation: 'Spouse',
     });
+
+    const handleCaseTypeChange = (newCaseType) => {
+        setData((prev) => {
+            const updates = { ...prev, case_type: newCaseType };
+            if (newCaseType === 'FAM' || newCaseType === 'D') {
+                updates.pension_type_id = '2'; // Family Pension (FAM)
+                if (prev.name_title === 'Shri' || prev.name_title === 'Smt') {
+                    updates.name_title = 'Late';
+                }
+            } else if (prev.pension_type_id === '2' && newCaseType === 'F') {
+                updates.pension_type_id = '1'; // Superannuation
+                if (prev.name_title === 'Late') {
+                    updates.name_title = 'Shri';
+                }
+            }
+            return updates;
+        });
+    };
 
     const [isLookingUp, setIsLookingUp] = useState(false);
     const [lookupFound, setLookupFound] = useState(false);
@@ -295,8 +313,8 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                                 </label>
                                 <select
                                     value={data.case_type}
-                                    onChange={(e) => setData('case_type', e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    onChange={(e) => handleCaseTypeChange(e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                                 >
                                     {case_types.map((t) => (
                                         <option key={t.id} value={t.id}>{t.name}</option>
@@ -324,18 +342,40 @@ export default function Create({ series_list, ddo_list, treasuries, case_types }
                                 <select
                                     value={data.pension_type_id}
                                     onChange={(e) => setData('pension_type_id', e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                                     required
                                 >
-                                    <option value="1">1 - Superannuation Pension</option>
-                                    <option value="2">2 - Death In Service (DLIS Admissible)</option>
-                                    <option value="3">3 - Voluntary Retirement</option>
-                                    <option value="4">4 - Resignation</option>
-                                    <option value="5">5 - Transfer / Inter-Governmental</option>
-                                    <option value="6">6 - Permanent Absorption</option>
-                                    <option value="7">7 - Family Pension (DLIS Admissible)</option>
+                                    {pension_types && pension_types.length > 0 ? (
+                                        pension_types.map((p) => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.id} - {p.name}
+                                            </option>
+                                        ))
+                                    ) : (
+                                        <>
+                                            <option value="1">1 - Superannuation (SUP)</option>
+                                            <option value="2">2 - Family Pension (FAM) [DLIS Admissible]</option>
+                                            <option value="3">3 - Voluntary Retirement (VOL)</option>
+                                            <option value="4">4 - Dismissal (DISM)</option>
+                                            <option value="5">5 - Suspension (SUSP)</option>
+                                            <option value="6">6 - Balance Transfer (BLTR)</option>
+                                            <option value="7">7 - Missing Employee (MISN) [DLIS Admissible]</option>
+                                        </>
+                                    )}
                                 </select>
                             </div>
+
+                            {(data.case_type === 'FAM' || data.pension_type_id === '2') && (
+                                <div className="sm:col-span-3 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2.5">
+                                    <ShieldAlert className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-semibold text-rose-200">Family Pension (FAM) Settlement Active</p>
+                                        <p className="text-[11px] text-rose-300/80 mt-0.5">
+                                            Admissible for Deposit-Linked Insurance Scheme (DLIS up to ₹60,000) and 6-month statutory interest window post-demise. Final authority and payment will be addressed to the designated nominee/spouse.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-xs font-medium text-slate-300 mb-1.5">HRMS Employee Code</label>

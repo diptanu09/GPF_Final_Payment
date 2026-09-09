@@ -152,6 +152,13 @@ export default function Show({ authority, case_data, calculation, nominees }) {
                         </div>
                     </div>
 
+                    {(case_data.case_type === 'FAM' || case_data.case_type === 'D' || String(case_data.pension_type_id) === '2') && (
+                        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+                            <span className="font-bold text-rose-200">Family Pension Disbursement: </span>
+                            Authorized to {case_data.spouse_name ? `${case_data.spouse_name} (${case_data.spouse_relation || 'Spouse'})` : 'designated legal nominee(s)'} of Late {case_data.subscriber_name_cache}.
+                        </div>
+                    )}
+
                     {/* Financial Summary */}
                     <div className="rounded-xl overflow-hidden border border-slate-800">
                         <table className="w-full text-left text-xs">

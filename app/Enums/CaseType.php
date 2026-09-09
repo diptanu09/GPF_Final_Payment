@@ -5,6 +5,7 @@ namespace App\Enums;
 enum CaseType: string
 {
     case NORMAL_SUPERANNUATION = 'F';
+    case FAMILY_PENSION = 'FAM';
     case DEATH_IN_SERVICE = 'D';
     case RESIGNATION = 'R';
     case LTA_SPECIAL = 'L';
@@ -15,6 +16,7 @@ enum CaseType: string
     {
         return match ($this) {
             self::NORMAL_SUPERANNUATION => 'Normal Superannuation / Retirement',
+            self::FAMILY_PENSION => 'Family Pension (FAM / Death in Service)',
             self::DEATH_IN_SERVICE => 'Death in Service (DLIS Applicable)',
             self::RESIGNATION => 'Resignation / Discharge',
             self::LTA_SPECIAL => 'Lifetime Arrears (LTA)',
@@ -27,6 +29,7 @@ enum CaseType: string
     {
         return match ($this) {
             self::NORMAL_SUPERANNUATION => 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+            self::FAMILY_PENSION => 'bg-rose-500/10 text-rose-400 border-rose-500/20',
             self::DEATH_IN_SERVICE => 'bg-rose-500/10 text-rose-400 border-rose-500/20',
             self::RESIGNATION => 'bg-amber-500/10 text-amber-400 border-amber-500/20',
             self::LTA_SPECIAL => 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',

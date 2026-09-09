@@ -39,5 +39,18 @@ class CutoffRuleResolverTest extends TestCase
 
         $cutoff = $this->resolver->resolveCutoffDate($case);
         $this->assertNotNull($cutoff);
+        $this->assertEquals('2024-02-29', $cutoff->toDateString());
+    }
+
+    public function test_family_pension_interest_cutoff(): void
+    {
+        $case = new InwardCase([
+            'case_type' => CaseType::FAMILY_PENSION,
+            'event_date' => '2023-08-15',
+        ]);
+
+        $cutoff = $this->resolver->resolveCutoffDate($case);
+        $this->assertNotNull($cutoff);
+        $this->assertEquals('2024-02-29', $cutoff->toDateString());
     }
 }
