@@ -222,6 +222,72 @@ class GpfControllersFeatureTest extends TestCase
         $this->assertEquals(CaseWorkflowStatus::DISPATCHED, $case->fresh()->current_status);
     }
 
+    public function test_authority_print_endpoints(): void
+    {
+        $srao = User::where('role', 'approver')->first();
+        $deo = User::where('role', 'deo')->first();
+
+        $case = InwardCase::create([
+            'registration_no' => '20240133333',
+            'series_code' => '01',
+            'account_no' => '33333',
+            'subscriber_name_cache' => 'Smt Maya Debbarma',
+            'name_title' => 'Smt',
+            'designation_title' => 'Ms',
+            'designation' => 'Senior Teacher',
+            'case_type' => CaseType::DEATH_IN_SERVICE,
+            'pension_type_id' => '2',
+            'ddo_code' => '1001',
+            'treasury_code' => '01',
+            'event_date' => '2024-01-15',
+            'personal_address' => 'Khowai',
+            'current_status' => CaseWorkflowStatus::AUTHORIZED,
+            'created_by' => $deo->id,
+        ]);
+
+        $calcRun = CalculationRun::create([
+            'inward_case_id' => $case->id,
+            'run_by' => $deo->id,
+            'run_date' => now(),
+            'opening_balance_amount' => 200000.00,
+            'opening_fin_year' => '2023-2024',
+            'total_subscriptions' => 40000.00,
+            'total_refunds' => 0.00,
+            'total_withdrawals' => 0.00,
+            'total_interest_computed' => 16000.00,
+            'dlis_amount' => 60000.00,
+            'final_closing_balance' => 256000.00,
+            'status' => 'FINAL',
+        ]);
+
+        $authority = Authority::create([
+            'inward_case_id' => $case->id,
+            'calculation_run_id' => $calcRun->id,
+            'authority_number' => 'No. FUND-I / FP / FAM / 2023-2024 / 20240133333 /',
+            'authority_date' => now(),
+            'gross_amount' => 256000.00,
+            'deductions_amount' => 0.00,
+            'net_amount' => 256000.00,
+            'dlis_amount' => 60000.00,
+            'is_signed' => true,
+            'signed_at' => now(),
+        ]);
+
+        // Print FP Authority
+        $fpPrint = $this->actingAs($srao)->get("/authority/{$authority->id}/print");
+        $fpPrint->assertStatus(200);
+        $fpPrint->assertSee('महालेखाकार का कार्यालय');
+        $fpPrint->assertSee('OFFICE OF THE ACCOUNTANT GENERAL');
+        $fpPrint->assertSee('20240133333');
+
+        // Print DLIS Sanction Order
+        $dlisPrint = $this->actingAs($srao)->get("/authority/{$authority->id}/print-dlis");
+        $dlisPrint->assertStatus(200);
+        $dlisPrint->assertSee('Deposit Linked Insurance Scheme');
+        $dlisPrint->assertSee('F.12(7)/FIN(G)/75');
+        $dlisPrint->assertSee('60000.00');
+    }
+
     public function test_reports_endpoints_render(): void
     {
         $srao = User::where('role', 'approver')->first();

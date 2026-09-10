@@ -12,15 +12,20 @@ import {
     FileText,
     Users,
     Building2,
-    Sparkles
+    Sparkles,
+    FileCheck,
+    ExternalLink
 } from 'lucide-react';
 
-export default function Show({ authority, case_data, calculation, nominees }) {
+export default function Show({ authority, case_data, calculation, nominees, amount_in_words, dlis_in_words }) {
     const [signModalOpen, setSignModalOpen] = useState(false);
     const [pin, setPin] = useState('');
     const [token, setToken] = useState('ePass2003 / Auto Token');
     const [isSigning, setIsSigning] = useState(false);
     const [signSuccess, setSignSuccess] = useState(false);
+    const [activeDocTab, setActiveDocTab] = useState('authority'); // 'authority' or 'dlis'
+
+    const hasDlis = (Number(authority.dlis_amount) > 0 || Number(calculation?.dlis_amount) > 0 || String(case_data.pension_type_id) === '2');
 
     const handleDscSign = async (e) => {
         e.preventDefault();
@@ -74,7 +79,7 @@ export default function Show({ authority, case_data, calculation, nominees }) {
                         </Link>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="text-xl font-bold tracking-tight text-white font-mono">
+                                <h2 className="text-lg font-bold tracking-tight text-white font-mono">
                                     {authority.authority_number}
                                 </h2>
                                 {authority.is_signed ? (
@@ -88,21 +93,21 @@ export default function Show({ authority, case_data, calculation, nominees }) {
                                     </span>
                                 )}
                             </div>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-slate-400 mt-0.5">
                                 Case: <strong className="text-slate-200 font-mono">{case_data.registration_no}</strong> &bull; Date: {authority.authority_date}
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                         {!authority.is_signed && (
                             <button
                                 type="button"
                                 onClick={() => setSignModalOpen(true)}
-                                className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/25 transition"
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/25 transition"
                             >
                                 <Key className="w-4 h-4" />
-                                <span>Sign with USB DSC Token</span>
+                                <span>Sign with USB DSC</span>
                             </button>
                         )}
 
@@ -110,161 +115,233 @@ export default function Show({ authority, case_data, calculation, nominees }) {
                             href={`/authority/${authority.id}/print`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 transition"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 transition"
                         >
-                            <Printer className="w-4 h-4" />
-                            <span>Print Authority Letter</span>
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>Print Authority</span>
                         </a>
+
+                        {hasDlis && (
+                            <a
+                                href={`/authority/${authority.id}/print-dlis`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-lg shadow-cyan-600/20 transition"
+                            >
+                                <Printer className="w-3.5 h-3.5" />
+                                <span>Print DLIS Order</span>
+                            </a>
+                        )}
                     </div>
                 </div>
 
-                {/* Printable Document Preview Card */}
-                <div className="glass-panel p-8 rounded-2xl space-y-6 border border-slate-800">
-                    {/* Header */}
-                    <div className="text-center border-b border-slate-800/80 pb-4">
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                            Government of India • Comptroller and Auditor General
-                        </div>
-                        <h1 className="text-base font-bold text-white mt-1">
-                            OFFICE OF THE ACCOUNTANT GENERAL (A & E), TRIPURA ::: AGARTALA
-                        </h1>
-                        <p className="text-[11px] text-slate-400">
-                            General Provident Fund Final Payment Order & Disbursement Authority
-                        </p>
+                {/* Tab selector when DLIS is present */}
+                {hasDlis && (
+                    <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                        <button
+                            type="button"
+                            onClick={() => setActiveDocTab('authority')}
+                            className={`px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
+                                activeDocTab === 'authority'
+                                    ? 'bg-indigo-600 text-white shadow-sm'
+                                    : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-800'
+                            }`}
+                        >
+                            <FileText className="w-4 h-4" />
+                            <span>Final Payment Authority</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveDocTab('dlis')}
+                            className={`px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
+                                activeDocTab === 'dlis'
+                                    ? 'bg-cyan-600 text-white shadow-sm'
+                                    : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-800'
+                            }`}
+                        >
+                            <Award className="w-4 h-4" />
+                            <span>DLIS Sanction Order (₹ {Number(authority.dlis_amount || calculation?.dlis_amount || 0).toLocaleString('en-IN')})</span>
+                        </button>
                     </div>
+                )}
 
-                    {/* Meta info */}
-                    <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div>
-                            <span className="text-slate-500">Subscriber Name:</span>
-                            <div className="font-semibold text-slate-100 mt-0.5">
-                                {case_data.name_title} {case_data.subscriber_name_cache}
+                {/* Document Preview Card */}
+                {activeDocTab === 'authority' ? (
+                    <div className="glass-panel p-8 rounded-2xl space-y-6 border border-slate-800 bg-slate-950/40">
+                        {/* Statutory Header */}
+                        <div className="text-center border-b border-slate-800 pb-4">
+                            <div className="text-sm font-bold text-slate-200">
+                                महालेखाकार का कार्यालय (लेखा एवं हक), त्रिपुरा - अगरतला
                             </div>
-                            <div className="text-slate-400 text-[11px]">{case_data.designation}</div>
+                            <h1 className="text-base font-bold text-white mt-0.5 tracking-wide">
+                                OFFICE OF THE ACCOUNTANT GENERAL (A & E), TRIPURA ::: AGARTALA
+                            </h1>
+                            <p className="text-[11px] text-slate-400 mt-1 font-mono">
+                                {authority.authority_number} &bull; Date: {authority.authority_date}
+                            </p>
                         </div>
 
-                        <div className="text-right">
-                            <span className="text-slate-500">GPF Account Number:</span>
-                            <div className="font-mono font-bold text-indigo-300 mt-0.5">
-                                {case_data.formatted_gpf_account}
-                            </div>
-                            <div className="text-slate-400 text-[11px]">DDO: {case_data.ddo_code}</div>
+                        {/* Title */}
+                        <div className="text-center">
+                            <span className="text-sm font-bold text-indigo-300 uppercase tracking-wider underline">
+                                Authorization Letter
+                            </span>
                         </div>
-                    </div>
 
-                    {(case_data.case_type === 'FAM' || case_data.case_type === 'D' || String(case_data.pension_type_id) === '2') && (
-                        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
-                            <span className="font-bold text-rose-200">Family Pension Disbursement: </span>
-                            Authorized to {case_data.spouse_name ? `${case_data.spouse_name} (${case_data.spouse_relation || 'Spouse'})` : 'designated legal nominee(s)'} of Late {case_data.subscriber_name_cache}.
+                        {/* Legal terms preamble */}
+                        <div className="text-xs text-slate-300 leading-relaxed text-justify space-y-2 bg-slate-900/40 p-4 rounded-xl border border-slate-800/80">
+                            <p>
+                                In terms of Rule 31 / 32 / 33 of Central GPF Rule 1960 ( As adopted by the state ) / Rule 28 of All India Service GPF Rules 1955, as applicable, the authorization for payment of <strong className="text-emerald-400">₹ {Number(authority.net_amount).toLocaleString('en-IN')}/- ({amount_in_words})</strong> is hereby accorded towards final withdrawal from GPF account of <strong className="text-white">{case_data.name_title} {case_data.subscriber_name_cache}</strong>, <strong className="text-slate-200">{case_data.designation_title} {case_data.designation}</strong>, <strong className="text-indigo-300 font-mono">Account no. {case_data.formatted_gpf_account}</strong> with interest calculated upto <strong className="text-white">{calculation?.interest_allowed_upto || 'Final Month'}</strong>.
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                                2. Authority for the payment of the residual balance, if any, will be issued as soon as credit(s) for <strong>nil</strong> is/are traced and adjusted.
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                                3. The payment is debitable to the head of account <strong>8009-01-101</strong> (for Govt of Tripura) / <strong>8009-01-104</strong> (for AIS).
+                            </p>
                         </div>
-                    )}
 
-                    {/* Financial Summary */}
-                    <div className="rounded-xl overflow-hidden border border-slate-800">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-900/80 border-b border-slate-800 text-slate-400 font-semibold">
-                                <tr>
-                                    <th className="py-2.5 px-4">Financial Ledger Component</th>
-                                    <th className="py-2.5 px-4 text-right">Amount (₹)</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800/60 font-mono">
-                                <tr>
-                                    <td className="py-2 px-4 text-slate-300">Opening Principal Balance</td>
-                                    <td className="py-2 px-4 text-right text-slate-200 font-semibold">
-                                        ₹ {Number(calculation?.opening_balance_amount || 0).toLocaleString('en-IN')}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="py-2 px-4 text-slate-300">Subscriptions & Verified Deposits</td>
-                                    <td className="py-2 px-4 text-right text-emerald-400 font-semibold">
-                                        + ₹ {Number(calculation?.total_subscriptions || 0).toLocaleString('en-IN')}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="py-2 px-4 text-slate-300">Statutory Interest Computed</td>
-                                    <td className="py-2 px-4 text-right text-indigo-400 font-semibold">
-                                        + ₹ {Number(calculation?.total_interest_computed || 0).toLocaleString('en-IN')}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td className="py-2 px-4 text-slate-300">Withdrawals during Year</td>
-                                    <td className="py-2 px-4 text-right text-rose-400 font-semibold">
-                                        - ₹ {Number(calculation?.total_withdrawals || 0).toLocaleString('en-IN')}
-                                    </td>
-                                </tr>
-                                {calculation?.dlis_amount > 0 && (
-                                    <tr>
-                                        <td className="py-2 px-4 text-slate-300">DLIS Insurance Amount</td>
-                                        <td className="py-2 px-4 text-right text-amber-400 font-semibold">
-                                            + ₹ {Number(calculation.dlis_amount).toLocaleString('en-IN')}
-                                        </td>
-                                    </tr>
-                                )}
-                                <tr className="bg-slate-900/60 font-sans">
-                                    <td className="py-3 px-4 text-sm font-bold text-slate-100">CERTIFIED NET PAYABLE BALANCE</td>
-                                    <td className="py-3 px-4 text-right text-base font-extrabold text-emerald-400 font-mono">
-                                        ₹ {Number(authority.net_amount).toLocaleString('en-IN')}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Nominees */}
-                    {nominees && nominees.length > 0 && (
+                        {/* 5-Column Financial Working Table */}
                         <div className="space-y-2">
                             <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                                Legal Claimants & Nominee Distribution
+                                4. Statutory Payable Sum Working Breakdown
                             </h4>
                             <div className="rounded-xl overflow-hidden border border-slate-800">
-                                <table className="w-full text-left text-xs">
-                                    <thead className="bg-slate-900/60 text-slate-400 font-semibold">
+                                <table className="w-full text-center text-xs">
+                                    <thead className="bg-slate-900/90 text-slate-400 font-semibold border-b border-slate-800">
                                         <tr>
-                                            <th className="py-2 px-3">Nominee Name</th>
-                                            <th className="py-2 px-3">Beneficiary Code</th>
-                                            <th className="py-2 px-3">Relation</th>
-                                            <th className="py-2 px-3">Share %</th>
-                                            <th className="py-2 px-3 text-right">Allocated Amount</th>
+                                            <th className="py-2.5 px-3">O.B. at Beginning (₹)</th>
+                                            <th className="py-2.5 px-3">Subscription & Refund (₹)</th>
+                                            <th className="py-2.5 px-3">Withdrawal / Advance (₹)</th>
+                                            <th className="py-2.5 px-3">Interest Computed (₹)</th>
+                                            <th className="py-2.5 px-3 font-bold text-emerald-400">Closing Balance (₹)</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-800/60">
-                                        {nominees.map((n) => (
-                                            <tr key={n.id}>
-                                                <td className="py-2 px-3 font-semibold text-slate-200">{n.nominee_name}</td>
-                                                <td className="py-2 px-3 font-mono text-indigo-400">{n.beneficiary_code || 'N/A'}</td>
-                                                <td className="py-2 px-3 text-slate-400">{n.relationship}</td>
-                                                <td className="py-2 px-3 font-mono">{n.share_percentage}%</td>
-                                                <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
-                                                    ₹ {Number(n.allocated_amount).toLocaleString('en-IN')}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                    <tbody className="font-mono divide-y divide-slate-800/60">
+                                        <tr>
+                                            <td className="py-3 px-3 text-slate-300">
+                                                ₹ {Number(calculation?.opening_balance_amount || 0).toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="py-3 px-3 text-emerald-400">
+                                                + ₹ {Number((Number(calculation?.total_subscriptions || 0) + Number(calculation?.excess_deposits || 0) + Number(calculation?.total_refunds || 0))).toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="py-3 px-3 text-rose-400">
+                                                - ₹ {Number(calculation?.total_withdrawals || 0).toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="py-3 px-3 text-indigo-400">
+                                                + ₹ {Number((Number(calculation?.actual_interest_computed || 0) + Number(calculation?.delayed_interest_computed || 0)) || calculation?.total_interest_computed || 0).toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="py-3 px-3 font-bold text-emerald-400 text-sm">
+                                                ₹ {Number(authority.net_amount).toLocaleString('en-IN')}
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
-                    )}
 
-                    {/* Digital Signature Seal */}
-                    <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
-                        <div className="text-[10px] text-slate-500 font-mono">
-                            SHA-256 Digest: {authority.verification_hash || 'Pending signature generation'}
-                        </div>
-
-                        {authority.is_signed && authority.digital_signature && (
-                            <div className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs flex items-center gap-3">
-                                <ShieldCheck className="w-6 h-6 text-teal-400" />
-                                <div>
-                                    <div className="font-bold">Digitally Certified by Senior Accounts Officer</div>
-                                    <div className="text-[11px] text-teal-400/80">
-                                        {authority.digital_signature.signatory_name} &bull; {authority.digital_signature.certificate_serial}
-                                    </div>
+                        {/* Nominees Matrix if available */}
+                        {nominees && nominees.length > 0 && (
+                            <div className="space-y-2">
+                                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                                    Beneficiary & Legal Claimants Distribution
+                                </h4>
+                                <div className="rounded-xl overflow-hidden border border-slate-800">
+                                    <table className="w-full text-left text-xs">
+                                        <thead className="bg-slate-900/60 text-slate-400 font-semibold">
+                                            <tr>
+                                                <th className="py-2 px-3">Nominee Name</th>
+                                                <th className="py-2 px-3">Beneficiary Code</th>
+                                                <th className="py-2 px-3">Relation</th>
+                                                <th className="py-2 px-3">Share %</th>
+                                                <th className="py-2 px-3 text-right">Allocated Sum (₹)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800/60">
+                                            {nominees.map((n) => (
+                                                <tr key={n.id}>
+                                                    <td className="py-2 px-3 font-semibold text-slate-200">{n.nominee_name}</td>
+                                                    <td className="py-2 px-3 font-mono text-indigo-400">{n.beneficiary_code || '---'}</td>
+                                                    <td className="py-2 px-3 text-slate-400">{n.relationship}</td>
+                                                    <td className="py-2 px-3 font-mono">{n.share_percentage}%</td>
+                                                    <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
+                                                        ₹ {Number(n.allocated_amount).toLocaleString('en-IN')}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         )}
+
+                        {/* Copy Forwarded */}
+                        <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1.5">
+                            <div className="font-bold text-slate-200 mb-1">Copy forwarded for information and necessary action to :-</div>
+                            <div>1. <strong>Treasury Officer</strong> - {case_data.treasury_name} ({case_data.treasury_code})</div>
+                            <div>2. <strong>{case_data.ddo_designation}</strong> ({case_data.ddo_code})</div>
+                            <div>3. <strong>{case_data.name_title} {case_data.subscriber_name_cache}</strong>, {case_data.designation}, {case_data.personal_address} (Mobile: {case_data.mobile_no || 'N/A'})</div>
+                        </div>
+
+                        {/* Digital Signature Seal */}
+                        <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+                            <div className="text-[10px] text-slate-500 font-mono">
+                                Memo: {authority.authority_number}
+                            </div>
+
+                            {authority.is_signed && authority.digital_signature ? (
+                                <div className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs flex items-center gap-3">
+                                    <ShieldCheck className="w-6 h-6 text-teal-400" />
+                                    <div>
+                                        <div className="font-bold">Digitally Certified by Senior Accounts Officer</div>
+                                        <div className="text-[11px] text-teal-400/80">
+                                            {authority.digital_signature.signatory_name} &bull; {authority.digital_signature.certificate_serial}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-right text-xs text-slate-500">
+                                    Authorized Signatory<br />
+                                    <span className="text-[10px]">O/o Accountant General (A&E), Tripura</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    /* DLIS Preview Card */
+                    <div className="glass-panel p-8 rounded-2xl space-y-6 border border-slate-800 bg-slate-950/40">
+                        <div className="text-center border-b border-slate-800 pb-4">
+                            <div className="text-sm font-bold text-slate-200">
+                                महालेखाकार का कार्यालय (लेखा एवं हक), Tripura - Agartala
+                            </div>
+                            <h1 className="text-base font-bold text-white mt-0.5 tracking-wide">
+                                OFFICE OF THE ACCOUNTANT GENERAL (A & E), TRIPURA ::: AGARTALA
+                            </h1>
+                            <p className="text-[11px] text-cyan-400 mt-1 font-mono">
+                                DEPOSIT LINKED INSURANCE SCHEME (DLIS) SANCTION ORDER
+                            </p>
+                        </div>
+
+                        <div className="text-xs text-slate-300 leading-relaxed text-justify space-y-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800/80">
+                            <p>
+                                In pursuance of Govt. of Tripura Finance Department O.M. No. F.12(7)/FIN(G)/75 dated 18-02-76, the authorization for <strong className="text-cyan-300">₹ {Number(authority.dlis_amount || calculation?.dlis_amount || 0).toLocaleString('en-IN')}/- ({dlis_in_words})</strong> only is hereby accorded towards Deposit Linked Insurance Scheme to <strong className="text-white">{case_data.spouse_name || 'the eligible nominee'} ({case_data.spouse_relation || 'Spouse'})</strong> of Late <strong className="text-white">{case_data.name_title} {case_data.subscriber_name_cache}</strong>, <strong className="text-slate-200">{case_data.designation}</strong>, Account no. <strong className="text-cyan-300 font-mono">{case_data.formatted_gpf_account}</strong>.
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                                2. The payment is debitable to the head of account <strong>2235- Social Security and welfare, 60 other Social Security and Welfare programme, 104 - Deposit Linked Insurance Scheme Govt. Provident Fund</strong>.
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                                3. The authority shall remain valid for six months from the date of issue.
+                            </p>
+                        </div>
+
+                        <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1.5">
+                            <div className="font-bold text-slate-200 mb-1">Copy forwarded for information and necessary action to :-</div>
+                            <div>1. <strong>Treasury Officer</strong> - {case_data.treasury_name} ({case_data.treasury_code})</div>
+                            <div>2. <strong>{case_data.ddo_designation}</strong> ({case_data.ddo_code})</div>
+                            <div>3. <strong>{case_data.spouse_name || case_data.subscriber_name_cache}</strong>, {case_data.designation}, {case_data.personal_address}</div>
+                        </div>
+                    </div>
+                )}
 
                 {/* USB DSC Token Handshake Modal */}
                 {signModalOpen && (

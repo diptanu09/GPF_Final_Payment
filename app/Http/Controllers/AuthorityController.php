@@ -7,6 +7,7 @@ use App\Models\Authority;
 use App\Models\InwardCase;
 use App\Services\DigitalSignature\PkiSignatureVerifier;
 use App\Services\Workflow\GpfWorkflowService;
+use App\Services\Format\IndianCurrencyFormatter;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -35,6 +36,7 @@ class AuthorityController extends Controller
                 'gpf_account' => $a->inwardCase->formatted_gpf_account,
                 'subscriber_name' => $a->inwardCase->subscriber_name_cache,
                 'net_amount' => (float) $a->net_amount,
+                'dlis_amount' => (float) $a->dlis_amount,
                 'is_signed' => $a->is_signed,
                 'signed_by' => $a->digitalSignature?->signatory_name,
                 'signed_at' => $a->signed_at?->format('d M Y, h:i A'),
@@ -56,20 +58,25 @@ class AuthorityController extends Controller
             return back()->withErrors(['error' => 'Cannot generate authority without a verified calculation run.']);
         }
 
-        $year = date('Y');
-        $authNo = 'AG/TRIPURA/GPF-FP/' . $year . '/' . substr($case->registration_no, -6);
+        $section = $case->section ?: 'FUND-I';
+        $pensionCode = ($case->case_type?->value === 'FAM' || (string)$case->pension_type_id === '2') ? 'FAM' : ($case->case_type?->value === 'L' ? 'LTA' : 'SUP');
+        $openingFinYear = $run->opening_fin_year ?: '2023-2024';
+        $authType = $case->case_type?->value === 'L' ? 'LTA' : 'FP';
+        
+        // Exact AG Tripura statutory memo format: No. SECTION / TYPE / PENSION_TYPE / OPENING_FIN_YEAR / REGD_NO /
+        $authNo = "No. {$section} / {$authType} / {$pensionCode} / {$openingFinYear} / {$case->registration_no} /";
 
         $authority = Authority::updateOrCreate(
             ['inward_case_id' => $case->id],
             [
                 'calculation_run_id' => $run->id,
                 'authority_number' => $authNo,
-                'authority_type' => $case->case_type->value === 'L' ? 'LTA' : 'FP',
+                'authority_type' => $authType,
                 'authority_date' => now(),
                 'gross_amount' => $run->final_closing_balance,
                 'deductions_amount' => 0.00,
                 'net_amount' => $run->final_closing_balance,
-                'dlis_amount' => $run->dlis_amount,
+                'dlis_amount' => (float) ($run->dlis_amount ?? 0),
             ]
         );
 
@@ -84,11 +91,16 @@ class AuthorityController extends Controller
             'digitalSignature',
         ])->findOrFail($id);
 
+        $netAmount = (float) $authority->net_amount;
+        $dlisAmount = (float) $authority->dlis_amount;
+
         return Inertia::render('Authority/Show', [
             'authority' => $authority,
             'case_data' => $authority->inwardCase,
             'calculation' => $authority->calculationRun,
             'nominees' => $authority->inwardCase->nominees,
+            'amount_in_words' => IndianCurrencyFormatter::toWords($netAmount),
+            'dlis_in_words' => $dlisAmount > 0 ? IndianCurrencyFormatter::toWords($dlisAmount) : null,
         ]);
     }
 
@@ -131,7 +143,26 @@ class AuthorityController extends Controller
             'digitalSignature',
         ])->findOrFail($id);
 
-        return view('pdf.authority_letter', [
+        $viewName = $authority->inwardCase->case_type?->value === 'L' ? 'pdf.lta_authority_letter' : 'pdf.authority_letter';
+
+        return view($viewName, [
+            'authority' => $authority,
+            'case' => $authority->inwardCase,
+            'run' => $authority->calculationRun,
+            'nominees' => $authority->inwardCase->nominees,
+            'missing_credits_text' => 'nil',
+        ]);
+    }
+
+    public function printDlis(string $id)
+    {
+        $authority = Authority::with([
+            'inwardCase.nominees',
+            'calculationRun.monthlyBreakdowns',
+            'digitalSignature',
+        ])->findOrFail($id);
+
+        return view('pdf.dlis_letter', [
             'authority' => $authority,
             'case' => $authority->inwardCase,
             'run' => $authority->calculationRun,

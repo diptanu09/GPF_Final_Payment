@@ -106,8 +106,19 @@ export default function Index({ authorities }) {
                                                     className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-700"
                                                 >
                                                     <Printer className="w-3 h-3" />
-                                                    <span>Print</span>
+                                                    <span>Print FP</span>
                                                 </a>
+                                                {a.dlis_amount > 0 && (
+                                                    <a
+                                                        href={`/authority/${a.id}/print-dlis`}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-300 hover:text-white bg-cyan-950/60 px-2.5 py-1.5 rounded-lg border border-cyan-800/80"
+                                                    >
+                                                        <Printer className="w-3 h-3" />
+                                                        <span>DLIS</span>
+                                                    </a>
+                                                )}
                                             </td>
                                         </tr>
                                     ))

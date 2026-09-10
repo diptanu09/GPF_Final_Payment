@@ -8,7 +8,7 @@
     $ashokBase64 = file_exists($ashokPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($ashokPath)) : '';
 
     $sectionName = $case->section ?: 'FUND-I';
-    $pensionTypeCode = $case->case_type?->value === 'FAM' || (string)$case->pension_type_id === '2' ? 'FAM' : ($case->case_type?->value === 'L' ? 'LTA' : 'SUP');
+    $pensionTypeCode = 'LTA';
     $openingFinYear = $run?->opening_fin_year ?: '2023-2024';
     $isRevised = str_contains($authority->authority_number, 'Revised');
 
@@ -29,15 +29,12 @@
 
     $missingCredits = $missing_credits_text ?? 'nil';
 
-    $isFamilyPension = ($case->case_type?->value === 'FAM' || (string)$case->pension_type_id === '2' || $case->case_type?->value === 'D');
-    $isLta = ($case->case_type?->value === 'L');
-
     $subscriberTitle = $case->name_title ?: 'Sri';
     $desgTitle = $case->designation_title ?: '';
     $subscriberFullName = trim($subscriberTitle . ' ' . $case->subscriber_name_cache);
-    $spouseFullName = $case->spouse_name ? trim($case->spouse_name . ', ' . ($case->spouse_relation ?: 'Spouse') . ' of ' . $subscriberFullName) : $subscriberFullName;
+    $ltaClaimant = $case->lta_to_whom ?: ($case->spouse_name ? $case->spouse_name . ', ' . ($case->spouse_relation ?: 'Spouse') : $subscriberFullName);
 
-    $memoNo = "No. {$sectionName} / FP / " . ($isRevised ? 'Revised / ' : '') . "{$pensionTypeCode} / {$openingFinYear} / {$case->registration_no} /";
+    $memoNo = "No. {$sectionName} / LTA / " . ($isRevised ? 'Revised / ' : '') . "{$pensionTypeCode} / {$openingFinYear} / {$case->registration_no} /";
     
     // QR Code data payload
     $qrData = "Office of the Accountant General (A&E), Tripura. Regd No: {$case->registration_no}. Approval Date: " . ($authority->authority_date ? $authority->authority_date->format('d/m/Y') : date('d/m/Y')) . ". Final Payment Amount: Rs. " . number_format($finalAmount, 2, '.', '');
@@ -48,7 +45,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Authority Report - {{ $case->registration_no }}</title>
+    <title>LTA Authority Report - {{ $case->registration_no }}</title>
     <style>
         @page {
             size: A4 portrait;
@@ -123,21 +120,6 @@
             font-weight: bold;
             background-color: #f9f9f9;
         }
-        .nominee-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 8px 0;
-            font-size: 12px;
-        }
-        .nominee-table th, .nominee-table td {
-            border: 1px solid #333;
-            padding: 5px 6px;
-        }
-        .nominee-table th {
-            background-color: #f2f2f2;
-            font-weight: bold;
-            text-align: left;
-        }
         .signatory-right {
             text-align: right;
             font-weight: bold;
@@ -186,10 +168,10 @@
 <body>
     <div class="no-print-bar">
         <div style="font-size: 12px; font-family: sans-serif; color: #475569;">
-            <strong>GPF Final Payment Authority Letter</strong> &bull; Registration: <code>{{ $case->registration_no }}</code>
+            <strong>Lifetime Arrears (LTA) Authority Letter</strong> &bull; Registration: <code>{{ $case->registration_no }}</code>
         </div>
         <div>
-            <button onclick="window.print()" style="padding: 7px 18px; background: #2563eb; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; font-family: sans-serif;">
+            <button onclick="window.print()" style="padding: 7px 18px; background: #4f46e5; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; font-family: sans-serif;">
                 🖨️ Print / Save as PDF
             </button>
         </div>
@@ -265,45 +247,9 @@
             </tbody>
         </table>
 
-        @if($nominees && $nominees->count() > 0)
-        <div style="font-size: 12px; margin-top: -4px; margin-bottom: 8px;">
-            <strong>Nominee / Shareholder Disbursement Distribution Matrix:</strong>
-            <table class="nominee-table">
-                <thead>
-                    <tr>
-                        <th>Nominee / Legal Claimant</th>
-                        <th>Beneficiary Code</th>
-                        <th>Relation</th>
-                        <th>Share %</th>
-                        <th style="text-align: right;">Allocated Sum (₹)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($nominees as $nominee)
-                    <tr>
-                        <td><strong>{{ $nominee->nominee_name }}</strong></td>
-                        <td><code>{{ $nominee->beneficiary_code ?: '---' }}</code></td>
-                        <td>{{ $nominee->relationship }}</td>
-                        <td>{{ number_format($nominee->share_percentage, 2) }}%</td>
-                        <td style="text-align: right; font-weight: bold;">₹ {{ number_format($nominee->allocated_amount, 2) }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-        @endif
-
         <strong>5. Payment is subject to adjustment of any payment made by the DDO between the date of forwarding the application to the date of actual payment.</strong><br>
 
-        6. The whole amount may be paid to 
-        @if($isLta)
-            <strong>{{ $case->lta_to_whom ?: $spouseFullName }}</strong> of <strong>{{ $subscriberFullName }}</strong>.
-        @elseif($isFamilyPension)
-            <strong>{{ $spouseFullName }}</strong>.
-        @else
-            <strong>{{ $subscriberFullName }}</strong>.
-        @endif
-        <br>
+        6. The whole amount may be paid to <strong>{{ $ltaClaimant }}</strong> of <strong>{{ $subscriberFullName }}</strong>.<br>
 
         7. The amount is payable on or after <strong>{{ $payableOnOrAfter }}</strong> only and authorization is valid for six months from the date of issue.<br>
 
@@ -318,12 +264,7 @@
                     <strong>Copy forwarded for information and necessary action to :-</strong><br><br>
                     1. <strong>Treasury Officer</strong> - {{ $case->treasury_name }}@if($case->sub_treasury_name && $case->sub_treasury_name !== $case->treasury_name), payable to {{ $case->sub_treasury_name }}@endif ({{ $case->treasury_code }}).<br><br>
                     2. <strong>{{ $case->ddo_designation }}</strong> ({{ $case->ddo_code }}).<br><br>
-                    3. 
-                    @if($isFamilyPension)
-                        <strong>{{ $spouseFullName }}</strong>, {{ $desgTitle }} {{ $case->designation }}, {{ $case->personal_address }}.<br>
-                    @else
-                        <strong>{{ $subscriberFullName }}</strong>, {{ $desgTitle }} {{ $case->designation }}, {{ $case->personal_address }}.<br>
-                    @endif
+                    3. <strong>{{ $ltaClaimant }}</strong> of <strong>{{ $subscriberFullName }}</strong>, {{ $desgTitle }} {{ $case->designation }}, {{ $case->personal_address }}.<br>
                     @if($case->mobile_no)
                         Mobile: {{ $case->mobile_no }}
                     @endif

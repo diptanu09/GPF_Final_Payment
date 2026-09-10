@@ -57,6 +57,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{id}', [AuthorityController::class, 'show'])->name('show');
         Route::post('/{id}/sign', [AuthorityController::class, 'sign'])->name('sign');
         Route::get('/{id}/print', [AuthorityController::class, 'print'])->name('print');
+        Route::get('/{id}/print-dlis', [AuthorityController::class, 'printDlis'])->name('print-dlis');
     });
 
     // Outward & HRMS Dispatch
