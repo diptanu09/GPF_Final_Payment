@@ -20,7 +20,9 @@ import {
     FileSpreadsheet,
     Layers,
     ChevronDown,
-    ExternalLink
+    ExternalLink,
+    Clock,
+    AlertTriangle
 } from 'lucide-react';
 
 export default function CalculationSheet({
@@ -70,12 +72,22 @@ export default function CalculationSheet({
     const updateRow = (index, field, value) => {
         const updated = [...rows];
         updated[index] = { ...updated[index], [field]: value };
+
+        // If toggling cut month to true, ensure subsequent months default to delayed
+        if (field === 'is_cut_month' && value === true) {
+            for (let i = 0; i < updated.length; i++) {
+                if (i !== index && updated[i].is_cut_month) {
+                    updated[i].is_cut_month = false;
+                }
+            }
+        }
+
         setRows(updated);
         setData('monthly_entries', updated);
     };
 
     // Add a new monthly entry
-    const addRow = (targetFY = null) => {
+    const addRow = (isDelayMonth = false) => {
         const lastRow = rows[rows.length - 1];
         let nextDate = new Date();
         if (lastRow && lastRow.pay_slip_date) {
@@ -86,7 +98,7 @@ export default function CalculationSheet({
 
         const m = nextDate.getMonth() + 1;
         const y = nextDate.getFullYear();
-        const calculatedFY = targetFY || ((m >= 4) ? `${y}-${y + 1}` : `${y - 1}-${y}`);
+        const calculatedFY = (m >= 4) ? `${y}-${y + 1}` : `${y - 1}-${y}`;
         const accountingMonth = (m >= 4) ? m - 3 : m + 9;
 
         const newRow = {
@@ -96,10 +108,10 @@ export default function CalculationSheet({
             interest_date: nextDate.toISOString().slice(0, 10),
             accounting_month: accountingMonth,
             opening_balance: 0,
-            deposit: 5000.0,
+            deposit: isDelayMonth ? 0 : 5000.0,
             withdrawal: 0.0,
             rate_of_interest: 7.1000,
-            interest_on_deposit: true,
+            interest_on_deposit: !isDelayMonth,
             progressive_balance: 0,
             actual_interest: 0,
             delay_interest: 0,
@@ -119,10 +131,11 @@ export default function CalculationSheet({
         setData('monthly_entries', updated);
     };
 
-    // Real-time live client preview of progressive balance & interest across multiple FYs
+    // Real-time live client preview of progressive balance, actual interest, & delay interest
     const liveCalculations = useMemo(() => {
         let currentOpening = parseFloat(openingBal) || 0;
-        let cumulativeInterest = 0;
+        let cumulativeActualInt = 0;
+        let cumulativeDelayInt = 0;
         let totalSub = 0;
         let totalWith = 0;
         let totalExcess = 0;
@@ -131,6 +144,11 @@ export default function CalculationSheet({
         let yearlyDeposits = 0;
         let yearlyWithdrawals = 0;
         let currentFY = null;
+        let cutMonthPassed = false;
+        let delayOpeningBal = 0;
+
+        // Find index of Cut Month if explicitly marked
+        const cutMonthIdx = rows.findIndex((r) => r.is_cut_month);
 
         const calculatedRows = rows.map((r, idx) => {
             const dep = parseFloat(r.deposit) || 0;
@@ -140,8 +158,11 @@ export default function CalculationSheet({
             const isCutMonth = Boolean(r.is_cut_month);
             const finY = r.financial_year;
 
-            // Transition between Financial Years: Capitalize previous year's interest
-            if (currentFY !== null && finY !== currentFY) {
+            // Is this row in the delayed period (after Cut Month)?
+            const isDelayRow = (cutMonthIdx !== -1 && idx > cutMonthIdx);
+
+            // Transition between Normal Financial Years: Capitalize previous year's interest
+            if (!isDelayRow && currentFY !== null && finY !== currentFY) {
                 currentOpening = currentOpening + yearlyDeposits - yearlyWithdrawals + Math.round(yearlyAccruedInt);
                 yearlyAccruedInt = 0;
                 yearlyDeposits = 0;
@@ -150,48 +171,89 @@ export default function CalculationSheet({
             }
             currentFY = finY;
 
+            // When crossing into the Delay Period, capture pre-delay closing balance as Delay Opening Balance
+            if (isDelayRow && !cutMonthPassed) {
+                cutMonthPassed = true;
+                delayOpeningBal = currentOpening + yearlyDeposits - yearlyWithdrawals + Math.round(yearlyAccruedInt);
+                currentOpening = delayOpeningBal;
+                runningProgressive = 0;
+            }
+
             const effectiveDep = intOnDep ? dep : 0;
             if (intOnDep) {
                 totalSub += dep;
-                yearlyDeposits += dep;
+                if (!isDelayRow) {
+                    yearlyDeposits += dep;
+                }
             } else {
                 totalExcess += dep;
             }
             totalWith += withdr;
-            yearlyWithdrawals += withdr;
+            if (!isDelayRow) {
+                yearlyWithdrawals += withdr;
+            }
 
-            if (r.accounting_month === 1 || runningProgressive === 0) {
-                runningProgressive = currentOpening + effectiveDep - withdr;
+            let mActualInterest = 0;
+            let mDelayInterest = 0;
+
+            if (isCutMonth) {
+                // Cut Month: Suppressed for interest
+                runningProgressive = 0;
+                mActualInterest = 0;
+                mDelayInterest = 0;
+            } else if (isDelayRow) {
+                // Delayed Interest Month
+                if (runningProgressive === 0) {
+                    runningProgressive = delayOpeningBal + effectiveDep - withdr;
+                } else {
+                    runningProgressive += (effectiveDep - withdr);
+                }
+
+                if (runningProgressive > 0) {
+                    mDelayInterest = Math.round(((runningProgressive * rate) / 1200) * 100) / 100;
+                }
+                cumulativeDelayInt += mDelayInterest;
             } else {
-                runningProgressive += (effectiveDep - withdr);
-            }
+                // Normal Active Period Month
+                if (r.accounting_month === 1 || runningProgressive === 0) {
+                    runningProgressive = currentOpening + effectiveDep - withdr;
+                } else {
+                    runningProgressive += (effectiveDep - withdr);
+                }
 
-            let mInterest = 0;
-            if (!isCutMonth && runningProgressive > 0) {
-                mInterest = Math.round(((runningProgressive * rate) / 1200) * 100) / 100;
-            }
+                if (runningProgressive > 0) {
+                    mActualInterest = Math.round(((runningProgressive * rate) / 1200) * 100) / 100;
+                }
 
-            yearlyAccruedInt += mInterest;
-            cumulativeInterest += mInterest;
+                yearlyAccruedInt += mActualInterest;
+                cumulativeActualInt += mActualInterest;
+            }
 
             return {
                 ...r,
-                opening_balance: r.accounting_month === 1 ? Math.round(currentOpening * 100) / 100 : 0,
+                is_delayed: isDelayRow,
+                opening_balance: (r.accounting_month === 1 || (isDelayRow && idx === cutMonthIdx + 1)) ? Math.round(currentOpening * 100) / 100 : 0,
                 progressive_balance: Math.round(runningProgressive * 100) / 100,
-                actual_interest: mInterest,
+                actual_interest: mActualInterest,
+                delay_interest: mDelayInterest,
             };
         });
 
+        const totalInterestCombined = cumulativeActualInt + cumulativeDelayInt;
         const finalAmount = Math.round(
-            (parseFloat(openingBal) || 0) + totalSub + totalExcess - totalWith + cumulativeInterest
+            (parseFloat(openingBal) || 0) + totalSub + totalExcess - totalWith + totalInterestCombined
         );
 
-        // Group rows by Financial Year for rendering
-        const grouped = {};
-        calculatedRows.forEach((r, originalIdx) => {
+        // Partition rows into Normal FY Groups vs Delay Period Group
+        const normalRows = calculatedRows.filter((r) => !r.is_delayed);
+        const delayRows = calculatedRows.filter((r) => r.is_delayed);
+
+        // Group normal rows by Financial Year
+        const groupedNormal = {};
+        normalRows.forEach((r, originalIdx) => {
             const fy = r.financial_year || '2024-2025';
-            if (!grouped[fy]) {
-                grouped[fy] = {
+            if (!groupedNormal[fy]) {
+                groupedNormal[fy] = {
                     financial_year: fy,
                     rows: [],
                     opening_balance: r.opening_balance || currentOpening,
@@ -201,14 +263,13 @@ export default function CalculationSheet({
                     closing_balance: 0,
                 };
             }
-            grouped[fy].rows.push({ ...r, _originalIdx: originalIdx });
-            grouped[fy].total_deposit += (parseFloat(r.deposit) || 0);
-            grouped[fy].total_withdrawal += (parseFloat(r.withdrawal) || 0);
-            grouped[fy].total_interest += (parseFloat(r.actual_interest) || 0);
+            groupedNormal[fy].rows.push({ ...r, _originalIdx: originalIdx });
+            groupedNormal[fy].total_deposit += (parseFloat(r.deposit) || 0);
+            groupedNormal[fy].total_withdrawal += (parseFloat(r.withdrawal) || 0);
+            groupedNormal[fy].total_interest += (parseFloat(r.actual_interest) || 0);
         });
 
-        // Compute FY closing balances
-        Object.values(grouped).forEach((group) => {
+        Object.values(groupedNormal).forEach((group) => {
             const firstRow = group.rows[0];
             const op = firstRow ? (parseFloat(firstRow.opening_balance) || 0) : 0;
             group.opening_balance = op;
@@ -216,13 +277,22 @@ export default function CalculationSheet({
             group.closing_balance = Math.round(op + group.total_deposit - group.total_withdrawal + group.total_interest_rounded);
         });
 
+        // Delay Summary Calculations
+        const delaySummary = {
+            opening_balance: delayOpeningBal,
+            total_deposit: delayRows.reduce((acc, r) => acc + (parseFloat(r.deposit) || 0), 0),
+            total_withdrawal: delayRows.reduce((acc, r) => acc + (parseFloat(r.withdrawal) || 0), 0),
+            total_delay_interest: Math.round(cumulativeDelayInt),
+            final_closing_balance: Math.round(delayOpeningBal + delayRows.reduce((acc, r) => acc + (parseFloat(r.deposit) || 0), 0) - delayRows.reduce((acc, r) => acc + (parseFloat(r.withdrawal) || 0), 0) + cumulativeDelayInt),
+        };
+
         // DLIS calculation (36 months progressive average up to ₹60,000)
         let dlisAmount = 0;
         if (dlisAdmissible) {
             const validRows = calculatedRows.filter((r) => !r.is_cut_month).slice(-36);
             if (validRows.length > 0) {
                 const sumProg = validRows.reduce((acc, r) => acc + (parseFloat(r.progressive_balance) || 0), 0);
-                const sumInt = validRows.reduce((acc, r) => acc + (parseFloat(r.actual_interest) || 0), 0);
+                const sumInt = validRows.reduce((acc, r) => acc + (parseFloat(r.actual_interest) || 0) + (parseFloat(r.delay_interest) || 0), 0);
                 const avg = Math.round((sumProg + sumInt) / Math.min(36, validRows.length));
                 dlisAmount = Math.min(60000, avg);
             }
@@ -230,11 +300,16 @@ export default function CalculationSheet({
 
         return {
             rows: calculatedRows,
-            grouped_by_fy: Object.values(grouped),
+            grouped_normal_fy: Object.values(groupedNormal),
+            delay_rows: delayRows,
+            delay_summary: delaySummary,
+            has_delay: delayRows.length > 0,
             total_subscriptions: totalSub,
             total_excess: totalExcess,
             total_withdrawals: totalWith,
-            total_interest: cumulativeInterest,
+            actual_interest: cumulativeActualInt,
+            delay_interest: cumulativeDelayInt,
+            total_interest: totalInterestCombined,
             final_closing_balance: finalAmount,
             dlis_amount: dlisAmount,
             grand_payable: finalAmount + dlisAmount,
@@ -294,7 +369,7 @@ export default function CalculationSheet({
                     </div>
                 </div>
 
-                {/* Calculation Summary Bar */}
+                {/* Calculation Summary Bar with Delayed Interest Metric */}
                 <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
                     <div className="glass-panel p-3.5 rounded-xl border border-slate-800">
                         <div className="text-[11px] text-slate-400">Base Opening Balance</div>
@@ -320,16 +395,21 @@ export default function CalculationSheet({
                     <div className="glass-panel p-3.5 rounded-xl border border-slate-800">
                         <div className="text-[11px] text-slate-400">Accrued Interest</div>
                         <div className="text-sm font-bold text-indigo-400 mt-1 font-mono">
-                            + ₹ {Number(liveCalculations.total_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            + ₹ {Number(liveCalculations.actual_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">Compounded Annually</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">Normal Period</div>
                     </div>
-                    <div className="glass-panel p-3.5 rounded-xl border border-slate-800">
-                        <div className="text-[11px] text-slate-400">DLIS Insurance</div>
-                        <div className="text-sm font-bold text-amber-400 mt-1 font-mono">
-                            + ₹ {Number(liveCalculations.dlis_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    <div className="glass-panel p-3.5 rounded-xl border border-amber-500/30 bg-amber-950/10">
+                        <div className="text-[11px] text-amber-300 font-semibold flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>Delayed Interest</span>
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">{dlisAdmissible ? 'Admissible' : 'N/A'}</div>
+                        <div className="text-sm font-bold text-amber-400 mt-1 font-mono">
+                            + ₹ {Number(liveCalculations.delay_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-[10px] text-amber-400/80 mt-0.5">
+                            {liveCalculations.has_delay ? `${liveCalculations.delay_rows.length} Delay Month(s)` : 'No Delay'}
+                        </div>
                     </div>
                     <div className="glass-panel p-3.5 rounded-xl bg-gradient-to-r from-emerald-950/40 to-indigo-950/40 border border-emerald-500/30 col-span-2 sm:col-span-1">
                         <div className="text-[11px] text-emerald-300 font-semibold">Net Final Settlement</div>
@@ -395,23 +475,33 @@ export default function CalculationSheet({
                                 />
                             </div>
 
-                            <div className="flex items-end self-end pt-5">
+                            <div className="flex items-end self-end pt-5 gap-2">
                                 <button
                                     type="button"
-                                    onClick={() => addRow()}
+                                    onClick={() => addRow(false)}
                                     className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-400 text-xs font-semibold flex items-center gap-1.5 transition border border-slate-700"
+                                    title="Add Normal Ledger Month"
                                 >
                                     <Plus className="w-3.5 h-3.5" />
                                     <span>Add Month</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => addRow(true)}
+                                    className="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold flex items-center gap-1.5 transition border border-amber-500/30"
+                                    title="Add Post-Retirement Delay Month"
+                                >
+                                    <Clock className="w-3.5 h-3.5" />
+                                    <span>Add Delay Month</span>
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Multi-Year Calculation Tables Grouped by Financial Year */}
+                {/* Section 1: Normal Period Calculation Tables (Grouped by Financial Year) */}
                 <div className="space-y-8">
-                    {liveCalculations.grouped_by_fy.map((group, gIdx) => (
+                    {liveCalculations.grouped_normal_fy.map((group) => (
                         <div key={group.financial_year} className="space-y-4">
                             {/* FY Section Header */}
                             <div className="flex items-center justify-between px-1">
@@ -425,7 +515,7 @@ export default function CalculationSheet({
                                     </span>
                                 </div>
                                 <div className="text-xs text-slate-400 font-mono">
-                                    Closing: <strong className="text-indigo-400">₹ {Number(group.closing_balance).toLocaleString('en-IN')}</strong>
+                                    Year-End Closing: <strong className="text-indigo-400">₹ {Number(group.closing_balance).toLocaleString('en-IN')}</strong>
                                 </div>
                             </div>
 
@@ -459,7 +549,7 @@ export default function CalculationSheet({
 
                                                 let rowBg = 'hover:bg-slate-900/40';
                                                 if (isCut) {
-                                                    rowBg = 'bg-rose-950/30 hover:bg-rose-950/40 text-rose-200';
+                                                    rowBg = 'bg-rose-950/40 hover:bg-rose-950/50 text-rose-200 border-l-4 border-rose-500';
                                                 } else if (noInt) {
                                                     rowBg = 'bg-cyan-950/20 hover:bg-cyan-950/30 text-cyan-200';
                                                 }
@@ -477,6 +567,11 @@ export default function CalculationSheet({
                                                                 <span className="text-[10px] text-slate-500 font-sans">
                                                                     M{row.accounting_month}
                                                                 </span>
+                                                                {isCut && (
+                                                                    <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[9px] font-sans font-bold uppercase">
+                                                                        Cut Month
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         <td className="py-2 px-3 text-right text-slate-400">
@@ -536,7 +631,7 @@ export default function CalculationSheet({
                                                                 checked={Boolean(row.is_cut_month)}
                                                                 onChange={(e) => updateRow(originalIndex, 'is_cut_month', e.target.checked)}
                                                                 className="rounded bg-slate-900 border-slate-700 text-rose-600 focus:ring-0 cursor-pointer"
-                                                                title="Toggle cut month (no interest computed)"
+                                                                title="Toggle Cut Month (End of Normal Interest Period)"
                                                             />
                                                         </td>
                                                         <td className="py-2 px-2 text-center">
@@ -585,6 +680,191 @@ export default function CalculationSheet({
                         </div>
                     ))}
                 </div>
+
+                {/* Section 2: Dedicated DELAY INTEREST CALCULATION Table (Post Cut-Off Period) */}
+                {liveCalculations.has_delay && (
+                    <div className="space-y-4 pt-4">
+                        <div className="flex items-center justify-between px-1">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                    <AlertTriangle className="w-4 h-4" />
+                                </div>
+                                <h3 className="text-sm font-bold text-amber-300 uppercase tracking-wider font-mono">
+                                    DELAY INTEREST CALCULATION (Months After Cut-Off)
+                                </h3>
+                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 font-mono">
+                                    Delay Opening Bal: ₹ {Number(liveCalculations.delay_summary.opening_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div className="text-xs text-amber-400 font-mono">
+                                Total Delay Interest: <strong>+ ₹ {Number(liveCalculations.delay_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                            </div>
+                        </div>
+
+                        <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl border border-amber-500/30 bg-amber-950/10">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                    <thead className="bg-amber-950/40 border-b border-amber-500/20 text-amber-200/90 font-semibold uppercase tracking-wider text-[11px]">
+                                        <tr>
+                                            <th className="py-3 px-3">Pay Slip Month (Delay)</th>
+                                            <th className="py-3 px-3 text-right">Opening Bal (₹)</th>
+                                            <th className="py-3 px-3 text-right">Excess Deposit (₹)</th>
+                                            <th className="py-3 px-3 text-right">Withdrawal (₹)</th>
+                                            <th className="py-3 px-3 text-right">Rate %</th>
+                                            <th className="py-3 px-3 text-right">Progressive (₹)</th>
+                                            <th className="py-3 px-3 text-right text-amber-300">Delay Int (₹)</th>
+                                            <th className="py-3 px-2 text-center">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-amber-500/10 font-mono">
+                                        {liveCalculations.delay_rows.map((row) => {
+                                            const originalIndex = rows.findIndex((orig) => orig.pay_slip_date === row.pay_slip_date);
+
+                                            return (
+                                                <tr key={originalIndex} className="hover:bg-amber-950/20 transition">
+                                                    <td className="py-2 px-3">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <input
+                                                                type="date"
+                                                                value={row.pay_slip_date}
+                                                                onChange={(e) => updateRow(originalIndex, 'pay_slip_date', e.target.value)}
+                                                                className="px-2 py-1 bg-slate-950/70 border border-amber-500/30 rounded text-[11px] text-amber-200 font-mono"
+                                                            />
+                                                            <span className="text-[10px] text-amber-400/70 font-sans">
+                                                                M{row.accounting_month}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-amber-200/80">
+                                                        {row.opening_balance > 0 ? (
+                                                            <span className="font-semibold text-amber-300">
+                                                                ₹ {Number(row.opening_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-slate-600">-</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right">
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={row.deposit}
+                                                            onChange={(e) => updateRow(originalIndex, 'deposit', parseFloat(e.target.value) || 0)}
+                                                            className="w-24 px-2 py-1 bg-slate-950/70 border border-amber-500/30 rounded text-right text-cyan-400 font-semibold text-xs"
+                                                        />
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right">
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={row.withdrawal}
+                                                            onChange={(e) => updateRow(originalIndex, 'withdrawal', parseFloat(e.target.value) || 0)}
+                                                            className="w-24 px-2 py-1 bg-slate-950/70 border border-amber-500/30 rounded text-right text-rose-400 font-semibold text-xs"
+                                                        />
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right">
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={row.rate_of_interest}
+                                                            onChange={(e) => updateRow(originalIndex, 'rate_of_interest', parseFloat(e.target.value) || 0)}
+                                                            className="w-16 px-1.5 py-1 bg-slate-950/70 border border-amber-500/30 rounded text-right text-slate-300 text-xs"
+                                                        />
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-amber-200 font-semibold">
+                                                        ₹ {Number(row.progressive_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-amber-400 font-bold">
+                                                        ₹ {Number(row.delay_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    </td>
+                                                    <td className="py-2 px-2 text-center">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeRow(originalIndex)}
+                                                            className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                                                            title="Delete Delay Month"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    {/* Delay Totals Footer */}
+                                    <tfoot className="bg-amber-950/40 font-mono font-bold border-t border-amber-500/30 text-amber-200">
+                                        <tr>
+                                            <td className="py-3 px-3 uppercase text-[11px]">
+                                                DELAY PERIOD TOTALS
+                                            </td>
+                                            <td className="py-3 px-3 text-right text-amber-300">
+                                                ₹ {Number(liveCalculations.delay_summary.opening_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="py-3 px-3 text-right text-cyan-400">
+                                                ₹ {Number(liveCalculations.delay_summary.total_deposit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="py-3 px-3 text-right text-rose-400">
+                                                ₹ {Number(liveCalculations.delay_summary.total_withdrawal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="py-3 px-3 text-right text-slate-400 text-[11px]">
+                                                Delay Interest:
+                                            </td>
+                                            <td className="py-3 px-3 text-right text-amber-400">
+                                                -
+                                            </td>
+                                            <td className="py-3 px-3 text-right text-amber-400 text-sm font-extrabold">
+                                                ₹ {Number(liveCalculations.delay_summary.total_delay_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="py-3 px-2 text-center text-emerald-400">
+                                                ✓
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Delay Period Particulars Card (Matching Legacy `calculation_sheet.php`) */}
+                        <div className="glass-panel p-4 rounded-2xl border border-amber-500/20 bg-amber-950/10">
+                            <div className="text-xs font-bold text-amber-300 uppercase tracking-wider mb-2 font-mono flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5" />
+                                <span>Delay Period Audit Breakdown</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs font-mono">
+                                <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                                    <div className="text-[10px] text-slate-400">Opening (Pre-Delay)</div>
+                                    <div className="text-sm font-bold text-white mt-0.5">
+                                        ₹ {Number(liveCalculations.delay_summary.opening_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </div>
+                                </div>
+                                <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                                    <div className="text-[10px] text-slate-400">Excess Deposits</div>
+                                    <div className="text-sm font-bold text-cyan-400 mt-0.5">
+                                        ₹ {Number(liveCalculations.delay_summary.total_deposit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </div>
+                                </div>
+                                <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                                    <div className="text-[10px] text-slate-400">Delay Withdrawals</div>
+                                    <div className="text-sm font-bold text-rose-400 mt-0.5">
+                                        ₹ {Number(liveCalculations.delay_summary.total_withdrawal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </div>
+                                </div>
+                                <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                                    <div className="text-[10px] text-slate-400">Delayed Interest</div>
+                                    <div className="text-sm font-bold text-amber-400 mt-0.5">
+                                        ₹ {Number(liveCalculations.delay_summary.total_delay_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </div>
+                                </div>
+                                <div className="p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30">
+                                    <div className="text-[10px] text-emerald-300">Final Delay Balance</div>
+                                    <div className="text-sm font-bold text-emerald-400 mt-0.5">
+                                        ₹ {Number(liveCalculations.delay_summary.final_closing_balance).toLocaleString('en-IN')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* DLIS & Sanction Approval Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -644,18 +924,26 @@ export default function CalculationSheet({
                             </div>
                             {liveCalculations.total_excess > 0 && (
                                 <div className="flex justify-between py-1 border-b border-slate-800 text-slate-300">
-                                    <span>Total Excess Deposits (No Int):</span>
+                                <span>Total Excess Deposits (No Int):</span>
                                     <span className="text-cyan-400">
                                         + ₹ {Number(liveCalculations.total_excess).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                     </span>
                                 </div>
                             )}
                             <div className="flex justify-between py-1 border-b border-slate-800 text-slate-300">
-                                <span>Total Accrued Compounded Interest:</span>
+                                <span>Normal Compounded Interest:</span>
                                 <span className="text-indigo-400">
-                                    + ₹ {Number(liveCalculations.total_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    + ₹ {Number(liveCalculations.actual_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
+                            {liveCalculations.delay_interest > 0 && (
+                                <div className="flex justify-between py-1 border-b border-slate-800 text-slate-300">
+                                    <span>Delayed Period Interest:</span>
+                                    <span className="text-amber-400 font-bold">
+                                        + ₹ {Number(liveCalculations.delay_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            )}
                             <div className="flex justify-between py-1 border-b border-slate-800 text-slate-300">
                                 <span>Less Withdrawals & Debits:</span>
                                 <span className="text-rose-400">

@@ -812,6 +812,8 @@ class OracleMasterBridge
         $yearlyWithdrawals = 0.00;
         $currentFY = null;
         $monthlyLedger = [];
+        $delayPeriodStarted = false;
+        $delayOpeningBal = 0.00;
 
         while ($currentDate->lessThanOrEqualTo($calcEndDate)) {
             $calMonth = $currentDate->format('Y-m');
@@ -819,9 +821,11 @@ class OracleMasterBridge
             $y = $currentDate->year;
             $finYear = ($m >= 4) ? "$y-" . ($y + 1) : ($y - 1) . "-$y";
             $accountingMonth = ($m >= 4) ? $m - 3 : $m + 9;
+            $isCutMonth = $currentDate->isSameMonth($cutoffDate);
+            $isDelayed = $currentDate->greaterThan($cutoffDate);
 
-            // Transition to new FY: capitalize prior year's interest & net transactions
-            if ($currentFY !== null && $finYear !== $currentFY) {
+            // Transition to new FY (normal period): capitalize prior year's interest & net transactions
+            if (!$isDelayed && $currentFY !== null && $finYear !== $currentFY) {
                 $runningOpening = $runningOpening + $yearlyDeposits - $yearlyWithdrawals + round($yearlyInterest);
                 $yearlyInterest = 0.00;
                 $yearlyDeposits = 0.00;
@@ -830,22 +834,46 @@ class OracleMasterBridge
             }
             $currentFY = $finYear;
 
+            // When entering delay period, capture closing balance up to cut month as delay opening balance
+            if ($isDelayed && !$delayPeriodStarted) {
+                $delayPeriodStarted = true;
+                $delayOpeningBal = $runningOpening + $yearlyDeposits - $yearlyWithdrawals + round($yearlyInterest);
+                $runningOpening = $delayOpeningBal;
+                $runningProgressive = 0.00;
+            }
+
             $voucher = $vouchersByMonth[$calMonth] ?? null;
             $deposit = $voucher ? (float) $voucher['deposit'] : 0.00;
             $withdrawal = $voucher ? (float) $voucher['withdrawal'] : 0.00;
             $rate = InterestRateSlab::getRateForDate($currentDate->toDateString()) ?? 7.1000;
-            $isCutMonth = $currentDate->isSameMonth($cutoffDate);
 
-            if ($accountingMonth === 1 || $runningProgressive == 0) {
-                $runningProgressive = $runningOpening + $deposit - $withdrawal;
+            if ($isCutMonth) {
+                // Cut Month: Values suppressed for interest calculation
+                $runningProgressive = 0.00;
+                $monthlyInt = 0.00;
+                $delayInt = 0.00;
+            } elseif ($isDelayed) {
+                // Delayed Period: interest computed into delay_interest
+                if ($runningProgressive == 0) {
+                    $runningProgressive = $delayOpeningBal + $deposit - $withdrawal;
+                } else {
+                    $runningProgressive += ($deposit - $withdrawal);
+                }
+                $monthlyInt = 0.00;
+                $delayInt = round(($runningProgressive * $rate) / 1200, 2);
             } else {
-                $runningProgressive += ($deposit - $withdrawal);
+                // Normal Active Period
+                if ($accountingMonth === 1 || $runningProgressive == 0) {
+                    $runningProgressive = $runningOpening + $deposit - $withdrawal;
+                } else {
+                    $runningProgressive += ($deposit - $withdrawal);
+                }
+                $monthlyInt = round(($runningProgressive * $rate) / 1200, 2);
+                $delayInt = 0.00;
+                $yearlyInterest += $monthlyInt;
+                $yearlyDeposits += $deposit;
+                $yearlyWithdrawals += $withdrawal;
             }
-
-            $monthlyInt = $isCutMonth ? 0.00 : round(($runningProgressive * $rate) / 1200, 2);
-            $yearlyInterest += $monthlyInt;
-            $yearlyDeposits += $deposit;
-            $yearlyWithdrawals += $withdrawal;
 
             $monthlyLedger[] = [
                 'financial_year' => $finYear,
@@ -857,10 +885,10 @@ class OracleMasterBridge
                 'deposit' => $deposit,
                 'withdrawal' => $withdrawal,
                 'rate_of_interest' => $rate,
-                'interest_on_deposit' => true,
+                'interest_on_deposit' => !$isDelayed,
                 'progressive_balance' => round($runningProgressive, 2),
                 'actual_interest' => $monthlyInt,
-                'delay_interest' => 0.00,
+                'delay_interest' => $delayInt,
                 'is_cut_month' => $isCutMonth,
                 'is_adjustment' => false,
                 'voucher_no' => $voucher['voucher_no'] ?? null,

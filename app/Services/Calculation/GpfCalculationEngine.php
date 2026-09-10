@@ -119,6 +119,14 @@ class GpfCalculationEngine
         $yearlyDeposits = '0.0000';
         $yearlyWithdrawals = '0.0000';
         $currentFinYear = null;
+        $delayPeriodStarted = false;
+        $delayOpeningBal = '0.0000';
+
+        // Detect explicit Cut Month in the ledger (matching legacy GPF_ACCOUNT_CALCULATION WHERE CUT_MONTH='Y')
+        $cutMonthEntry = $entries->first(fn ($item) => !empty($item['is_cut_month']));
+        $effectiveCutoffDate = $cutMonthEntry 
+            ? Carbon::parse($cutMonthEntry['pay_slip_date'])->endOfMonth() 
+            : $cutoffDate;
 
         // Group entries by financial year to ensure correct annual capitalization
         foreach ($entries as $index => $item) {
@@ -132,12 +140,13 @@ class GpfCalculationEngine
             $intOnDeposit = (bool) ($item['interest_on_deposit'] ?? true);
             $isCutMonth = (bool) ($item['is_cut_month'] ?? false);
             $isAdj = (bool) ($item['is_adjustment'] ?? false);
+            $isDelayed = $paySlipDate->greaterThan($effectiveCutoffDate);
 
             // Determine rate of interest for this month
             $rate = (string) ($item['rate_of_interest'] ?? InterestRateSlab::getRateForDate($paySlipDate->toDateString()) ?? 7.1000);
 
             // If transitioning to a new Financial Year, capitalize previous year's interest & net transactions
-            if ($currentFinYear !== null && $finYear !== $currentFinYear) {
+            if (!$isDelayed && $currentFinYear !== null && $finYear !== $currentFinYear) {
                 $annualInterest = (string) round((float) $yearlyAccruedInterest);
                 $currentOpening = bcadd($currentOpening, $yearlyDeposits, $this->scale);
                 $currentOpening = bcsub($currentOpening, $yearlyWithdrawals, $this->scale);
@@ -151,8 +160,18 @@ class GpfCalculationEngine
             }
             $currentFinYear = $finYear;
 
+            // When entering delay period, capture closing balance up to cut month as delay opening balance
+            if ($isDelayed && !$delayPeriodStarted) {
+                $delayPeriodStarted = true;
+                $annualInterest = (string) round((float) $yearlyAccruedInterest);
+                $delayOpeningBal = bcadd($currentOpening, $yearlyDeposits, $this->scale);
+                $delayOpeningBal = bcsub($delayOpeningBal, $yearlyWithdrawals, $this->scale);
+                $delayOpeningBal = bcadd($delayOpeningBal, $annualInterest, $this->scale);
+                $currentOpening = $delayOpeningBal;
+                $runningProgressive = '0.0000';
+            }
+
             $effectiveDeposit = $intOnDeposit ? $deposit : '0.0000';
-            $isDelayed = $paySlipDate->greaterThan($cutoffDate);
 
             // Calculate Progressive Balance
             if ($isCutMonth) {
@@ -164,7 +183,7 @@ class GpfCalculationEngine
             } elseif ($isDelayed) {
                 // Delayed period (after cutoff)
                 if (bccomp($runningProgressive, '0.0000', $this->scale) === 0) {
-                    $runningProgressive = $currentOpening;
+                    $runningProgressive = $delayOpeningBal;
                 }
                 $monthStep = bcsub($effectiveDeposit, $withdrawal, $this->scale);
                 $runningProgressive = bcadd($runningProgressive, $monthStep, $this->scale);
