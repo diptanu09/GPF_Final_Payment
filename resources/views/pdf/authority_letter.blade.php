@@ -202,6 +202,7 @@
             <thead>
                 <tr>
                     <th>Nominee / Legal Heir</th>
+                    <th>Beneficiary Code</th>
                     <th>Relation</th>
                     <th>Share %</th>
                     <th style="text-align: right;">Allocated Sum (₹)</th>
@@ -211,6 +212,7 @@
                 @foreach($nominees as $nominee)
                 <tr>
                     <td>{{ $nominee->nominee_name }}</td>
+                    <td><code>{{ $nominee->beneficiary_code ?? 'N/A' }}</code></td>
                     <td>{{ $nominee->relationship }}</td>
                     <td>{{ number_format($nominee->share_percentage, 2) }}%</td>
                     <td class="amount">₹ {{ number_format($nominee->allocated_amount, 2) }}</td>

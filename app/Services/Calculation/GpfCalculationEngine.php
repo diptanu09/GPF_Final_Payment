@@ -108,6 +108,7 @@ class GpfCalculationEngine
 
     /**
      * Process month-by-month compounding and annual capitalization
+     * following statutory AG Tripura GPF progressive compounding rules.
      */
     protected function processMonthlyLedger(CalculationRun $run, Collection $entries, string $openingBal, Carbon $cutoffDate): Collection
     {
@@ -115,7 +116,11 @@ class GpfCalculationEngine
         $currentOpening = $openingBal;
         $runningProgressive = '0.0000';
         $yearlyAccruedInterest = '0.0000';
+        $yearlyDeposits = '0.0000';
+        $yearlyWithdrawals = '0.0000';
+        $currentFinYear = null;
 
+        // Group entries by financial year to ensure correct annual capitalization
         foreach ($entries as $index => $item) {
             $paySlipDate = Carbon::parse($item['pay_slip_date'] ?? Carbon::now());
             $calMonth = $paySlipDate->format('Y-m');
@@ -131,31 +136,67 @@ class GpfCalculationEngine
             // Determine rate of interest for this month
             $rate = (string) ($item['rate_of_interest'] ?? InterestRateSlab::getRateForDate($paySlipDate->toDateString()) ?? 7.1000);
 
-            // April (Month 1): If starting a new FY and not first record, add previous year's interest to principal
-            if ($accountingMonth === 1 && $index > 0) {
-                $currentOpening = bcadd($currentOpening, $yearlyAccruedInterest, $this->scale);
+            // If transitioning to a new Financial Year, capitalize previous year's interest & net transactions
+            if ($currentFinYear !== null && $finYear !== $currentFinYear) {
+                $annualInterest = (string) round((float) $yearlyAccruedInterest);
+                $currentOpening = bcadd($currentOpening, $yearlyDeposits, $this->scale);
+                $currentOpening = bcsub($currentOpening, $yearlyWithdrawals, $this->scale);
+                $currentOpening = bcadd($currentOpening, $annualInterest, $this->scale);
+
+                // Reset yearly accumulators
                 $yearlyAccruedInterest = '0.0000';
+                $yearlyDeposits = '0.0000';
+                $yearlyWithdrawals = '0.0000';
+                $runningProgressive = '0.0000';
             }
+            $currentFinYear = $finYear;
 
-            // Calculate Progressive balance
-            // Month Progressive = Prior Opening + Deposit - Withdrawal
             $effectiveDeposit = $intOnDeposit ? $deposit : '0.0000';
-            $monthStep = bcsub($effectiveDeposit, $withdrawal, $this->scale);
-            $progressive = bcadd($currentOpening, $monthStep, $this->scale);
-
-            // Calculate monthly interest = (Progressive * Rate) / 1200
-            $monthlyInt = '0.0000';
             $isDelayed = $paySlipDate->greaterThan($cutoffDate);
 
-            if (!$isCutMonth && bccomp($progressive, '0.0000', $this->scale) > 0) {
+            // Calculate Progressive Balance
+            if ($isCutMonth) {
+                // Cut month: values are suppressed for interest calculation
+                $progressive = '0.0000';
+                $actualInt = '0.0000';
+                $delayInt = '0.0000';
+                $runningProgressive = '0.0000';
+            } elseif ($isDelayed) {
+                // Delayed period (after cutoff)
+                if (bccomp($runningProgressive, '0.0000', $this->scale) === 0) {
+                    $runningProgressive = $currentOpening;
+                }
+                $monthStep = bcsub($effectiveDeposit, $withdrawal, $this->scale);
+                $runningProgressive = bcadd($runningProgressive, $monthStep, $this->scale);
+                $progressive = $runningProgressive;
+
                 $numerator = bcmul($progressive, $rate, $this->scale);
                 $monthlyInt = bcdiv($numerator, '1200', $this->scale);
+                $actualInt = '0.0000';
+                $delayInt = (string) round((float) $monthlyInt, 2);
+            } else {
+                // Normal month within active FY
+                $monthStep = bcsub($effectiveDeposit, $withdrawal, $this->scale);
+                if ($accountingMonth === 1 || bccomp($runningProgressive, '0.0000', $this->scale) === 0) {
+                    $runningProgressive = bcadd($currentOpening, $monthStep, $this->scale);
+                } else {
+                    $runningProgressive = bcadd($runningProgressive, $monthStep, $this->scale);
+                }
+                $progressive = $runningProgressive;
+
+                $monthlyInt = '0.0000';
+                if (bccomp($progressive, '0.0000', $this->scale) > 0) {
+                    $numerator = bcmul($progressive, $rate, $this->scale);
+                    $monthlyInt = bcdiv($numerator, '1200', $this->scale);
+                }
+
+                $actualInt = (string) round((float) $monthlyInt, 2);
+                $delayInt = '0.0000';
+
+                $yearlyAccruedInterest = bcadd($yearlyAccruedInterest, $actualInt, $this->scale);
+                $yearlyDeposits = bcadd($yearlyDeposits, $effectiveDeposit, $this->scale);
+                $yearlyWithdrawals = bcadd($yearlyWithdrawals, $withdrawal, $this->scale);
             }
-
-            $actualInt = $isDelayed ? '0.0000' : $monthlyInt;
-            $delayInt = $isDelayed ? $monthlyInt : '0.0000';
-
-            $yearlyAccruedInterest = bcadd($yearlyAccruedInterest, $actualInt, $this->scale);
 
             $breakdown = CalculationMonthlyBreakdown::create([
                 'calculation_run_id' => $run->id,
@@ -186,12 +227,13 @@ class GpfCalculationEngine
 
     /**
      * Compute DLIS (Deposit Linked Insurance Scheme) 36-month average up to statutory cap
+     * Matching legacy formula: (Sum(Progressive in 36m) + Sum(Interest in 36m)) / 36
      */
     protected function calculateDlisAmount(Collection $breakdowns, Carbon $cutoffDate): float
     {
-        $cap = (float) config('gpf.dlis.max_amount', 10000);
+        $cap = (float) config('gpf.dlis.max_amount', 60000);
         $eligibleMonths = $breakdowns->filter(function ($row) use ($cutoffDate) {
-            return Carbon::parse($row->pay_slip_date)->lessThanOrEqualTo($cutoffDate);
+            return Carbon::parse($row->pay_slip_date)->lessThanOrEqualTo($cutoffDate) && !$row->is_cut_month;
         })->take(-36);
 
         if ($eligibleMonths->isEmpty()) {
@@ -199,7 +241,8 @@ class GpfCalculationEngine
         }
 
         $sumProgressive = $eligibleMonths->sum(fn ($r) => (float) $r->progressive_balance);
-        $average = $sumProgressive / max(1, $eligibleMonths->count());
+        $sumInterest = $eligibleMonths->sum(fn ($r) => (float) $r->actual_interest);
+        $average = ($sumProgressive + $sumInterest) / min(36, max(1, $eligibleMonths->count()));
 
         return min($cap, round($average, 2));
     }

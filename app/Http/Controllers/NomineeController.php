@@ -34,6 +34,7 @@ class NomineeController extends Controller
         $validated = $request->validate([
             'nominees' => ['required', 'array', 'min:1'],
             'nominees.*.nominee_name' => ['required', 'string', 'max:255'],
+            'nominees.*.beneficiary_code' => ['nullable', 'string', 'max:50'],
             'nominees.*.relationship' => ['required', 'string'],
             'nominees.*.share_percentage' => ['required', 'numeric', 'min:0.01', 'max:100.00'],
             'nominees.*.bank_account_no' => ['nullable', 'string'],

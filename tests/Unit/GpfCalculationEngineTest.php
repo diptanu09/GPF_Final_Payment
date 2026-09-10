@@ -180,4 +180,92 @@ class GpfCalculationEngineTest extends TestCase
         $this->assertEquals(10000.00, (float) $run->dlis_amount);
         $this->assertGreaterThan(85000.00, (float) $run->final_closing_balance);
     }
+
+    public function test_multi_year_progressive_compounding_and_beneficiary_code(): void
+    {
+        $user = User::first();
+
+        $case = InwardCase::create([
+            'registration_no' => '20230377777',
+            'series_code' => '03',
+            'account_no' => '77777',
+            'subscriber_name_cache' => 'Multi-Year Employee',
+            'name_title' => 'Shri',
+            'designation_title' => 'Mr',
+            'designation' => 'Officer',
+            'case_type' => CaseType::NORMAL_SUPERANNUATION,
+            'pension_type_id' => '1',
+            'ddo_code' => '1001',
+            'treasury_code' => '01',
+            'event_date' => '2025-03-31',
+            'personal_address' => 'Agartala',
+            'current_status' => CaseWorkflowStatus::DRAFT,
+            'created_by' => $user->id,
+        ]);
+
+        $n1 = CaseNominee::create([
+            'inward_case_id' => $case->id,
+            'nominee_name' => 'Wife Legal Heir',
+            'beneficiary_code' => 'BEN-77001',
+            'relationship' => 'Spouse',
+            'share_percentage' => 100.00,
+        ]);
+
+        $this->assertEquals('BEN-77001', $n1->fresh()->beneficiary_code);
+
+        // 2 financial years ledger
+        $ledgerEntries = [
+            'opening_balance' => 100000.00,
+            'opening_fin_year' => '2023-2024',
+            'monthly_entries' => [
+                // FY 2023-2024 (April - March)
+                [
+                    'financial_year' => '2023-2024',
+                    'calendar_month' => '2023-04',
+                    'pay_slip_date' => '2023-04-01',
+                    'accounting_month' => 1,
+                    'deposit' => 10000.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => true,
+                ],
+                [
+                    'financial_year' => '2023-2024',
+                    'calendar_month' => '2023-05',
+                    'pay_slip_date' => '2023-05-01',
+                    'accounting_month' => 2,
+                    'deposit' => 10000.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => true,
+                ],
+                // FY 2024-2025 (April)
+                [
+                    'financial_year' => '2024-2025',
+                    'calendar_month' => '2024-04',
+                    'pay_slip_date' => '2024-04-01',
+                    'accounting_month' => 1,
+                    'deposit' => 10000.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => true,
+                ],
+            ],
+        ];
+
+        $run = $this->engine->calculate($case, $ledgerEntries, $user->id);
+
+        $breakdowns = $run->monthlyBreakdowns;
+        $this->assertCount(3, $breakdowns);
+
+        // Month 1: Progressive = 100,000 + 10,000 = 110,000
+        $this->assertEquals(110000.00, (float) $breakdowns[0]->progressive_balance);
+
+        // Month 2: Progressive = 110,000 + 10,000 = 120,000
+        $this->assertEquals(120000.00, (float) $breakdowns[1]->progressive_balance);
+
+        // FY 2024-2025 Month 1 (April): Opening balance should capitalize prior FY's deposits and accrued interest
+        $this->assertGreaterThan(120000.00, (float) $breakdowns[2]->opening_balance);
+        $this->assertEquals((float) $run->final_closing_balance, (float) $n1->fresh()->allocated_amount);
+    }
 }

@@ -86,6 +86,7 @@ class GpfControllersFeatureTest extends TestCase
             'nominees' => [
                 [
                     'nominee_name' => 'Smt Gita Sen',
+                    'beneficiary_code' => 'BEN-66001',
                     'relationship' => 'Spouse',
                     'share_percentage' => 50.00,
                     'is_minor' => false,
@@ -94,6 +95,7 @@ class GpfControllersFeatureTest extends TestCase
                 ],
                 [
                     'nominee_name' => 'Master Rahul Sen',
+                    'beneficiary_code' => 'BEN-66002',
                     'relationship' => 'Son',
                     'share_percentage' => 50.00,
                     'is_minor' => true,
@@ -106,7 +108,9 @@ class GpfControllersFeatureTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertCount(2, $case->fresh()->nominees);
+        $freshNominees = $case->fresh()->nominees;
+        $this->assertCount(2, $freshNominees);
+        $this->assertEquals('BEN-66001', $freshNominees->first()->beneficiary_code);
     }
 
     public function test_authority_generation_and_signing(): void

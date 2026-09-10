@@ -194,6 +194,51 @@ export default function Show({ case_data, staff_users }) {
                                 </div>
                             )}
                         </div>
+
+                        {/* Nominees & Beneficiaries */}
+                        {case_data.nominees && case_data.nominees.length > 0 && (
+                            <div className="glass-panel p-6 rounded-2xl space-y-4">
+                                <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3 flex items-center justify-between">
+                                    <span className="flex items-center gap-2">
+                                        <Users className="w-4 h-4 text-purple-400" />
+                                        <span>Nominee & Beneficiary Distribution</span>
+                                    </span>
+                                    <Link
+                                        href={`/nominees/${case_data.id}`}
+                                        className="text-xs text-purple-400 hover:text-purple-300 font-semibold"
+                                    >
+                                        Edit Share Matrix →
+                                    </Link>
+                                </h3>
+
+                                <div className="rounded-xl overflow-hidden border border-slate-800">
+                                    <table className="w-full text-left text-xs">
+                                        <thead className="bg-slate-900/60 text-slate-400 font-semibold">
+                                            <tr>
+                                                <th className="py-2.5 px-3">Nominee Name</th>
+                                                <th className="py-2.5 px-3">Beneficiary Code</th>
+                                                <th className="py-2.5 px-3">Relation</th>
+                                                <th className="py-2.5 px-3">Share %</th>
+                                                <th className="py-2.5 px-3 text-right">Allocated Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800/60">
+                                            {case_data.nominees.map((n) => (
+                                                <tr key={n.id}>
+                                                    <td className="py-2.5 px-3 font-semibold text-slate-200">{n.nominee_name}</td>
+                                                    <td className="py-2.5 px-3 font-mono text-purple-300">{n.beneficiary_code || 'N/A'}</td>
+                                                    <td className="py-2.5 px-3 text-slate-400">{n.relationship}</td>
+                                                    <td className="py-2.5 px-3 font-mono">{n.share_percentage}%</td>
+                                                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
+                                                        ₹ {Number(n.allocated_amount || 0).toLocaleString('en-IN')}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Right Col: Staff Assignment & Workflow Timeline */}

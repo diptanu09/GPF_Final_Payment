@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import {
     Calculator,
@@ -11,13 +11,39 @@ import {
     ArrowLeft,
     TrendingUp,
     Lock,
-    Sparkles
+    Sparkles,
+    Building2,
+    Calendar,
+    ShieldCheck,
+    Coins,
+    AlertCircle,
+    FileSpreadsheet,
+    Layers,
+    ChevronDown,
+    ExternalLink
 } from 'lucide-react';
 
-export default function CalculationSheet({ case_data, calculation_run, opening_balance, opening_fin_year, monthly_ledger }) {
+export default function CalculationSheet({
+    case_data,
+    calculation_run,
+    available_base_years = [],
+    opening_balance = 0,
+    opening_fin_year = '2023-2024',
+    monthly_ledger = []
+}) {
     const [openingBal, setOpeningBal] = useState(opening_balance || 0);
     const [finYear, setFinYear] = useState(opening_fin_year || '2023-2024');
     const [rows, setRows] = useState(monthly_ledger || []);
+    const [dlisAdmissible, setDlisAdmissible] = useState(
+        calculation_run ? Boolean(calculation_run.dlis_admissible) : (case_data.case_type === 'FAM' || case_data.case_type === 'D')
+    );
+
+    // Sync state when props change
+    useEffect(() => {
+        setOpeningBal(opening_balance || 0);
+        setFinYear(opening_fin_year || '2023-2024');
+        setRows(monthly_ledger || []);
+    }, [opening_balance, opening_fin_year, monthly_ledger]);
 
     const { data, setData, post, processing } = useForm({
         opening_balance: openingBal,
@@ -25,7 +51,22 @@ export default function CalculationSheet({ case_data, calculation_run, opening_b
         monthly_entries: rows,
     });
 
-    // Update row cell
+    // Handle changing the Base Financial Year from VLC list
+    const handleBaseFinYearChange = (selectedYear) => {
+        setFinYear(selectedYear);
+        const matched = (available_base_years || []).find((b) => b.financial_year === selectedYear);
+        const newBal = matched && matched.closing_balance ? matched.closing_balance : 0;
+        setOpeningBal(newBal);
+
+        // Reload data from backend with chosen base financial year
+        router.get(
+            `/calculation/${case_data.id}`,
+            { base_fin_year: selectedYear, opening_balance: newBal },
+            { preserveState: false, preserveScroll: true }
+        );
+    };
+
+    // Update individual cell in ledger
     const updateRow = (index, field, value) => {
         const updated = [...rows];
         updated[index] = { ...updated[index], [field]: value };
@@ -34,23 +75,29 @@ export default function CalculationSheet({ case_data, calculation_run, opening_b
     };
 
     // Add a new monthly entry
-    const addRow = () => {
+    const addRow = (targetFY = null) => {
         const lastRow = rows[rows.length - 1];
         let nextDate = new Date();
-        if (lastRow) {
+        if (lastRow && lastRow.pay_slip_date) {
             const d = new Date(lastRow.pay_slip_date);
             d.setMonth(d.getMonth() + 1);
             nextDate = d;
         }
 
+        const m = nextDate.getMonth() + 1;
+        const y = nextDate.getFullYear();
+        const calculatedFY = targetFY || ((m >= 4) ? `${y}-${y + 1}` : `${y - 1}-${y}`);
+        const accountingMonth = (m >= 4) ? m - 3 : m + 9;
+
         const newRow = {
-            financial_year: finYear,
+            financial_year: calculatedFY,
             calendar_month: nextDate.toISOString().slice(0, 7),
             pay_slip_date: nextDate.toISOString().slice(0, 10),
-            accounting_month: (rows.length % 12) + 1,
+            interest_date: nextDate.toISOString().slice(0, 10),
+            accounting_month: accountingMonth,
             opening_balance: 0,
-            deposit: 0,
-            withdrawal: 0,
+            deposit: 5000.0,
+            withdrawal: 0.0,
             rate_of_interest: 7.1000,
             interest_on_deposit: true,
             progressive_balance: 0,
@@ -72,46 +119,65 @@ export default function CalculationSheet({ case_data, calculation_run, opening_b
         setData('monthly_entries', updated);
     };
 
-    // Real-time live client preview of progressive balance & interest
+    // Real-time live client preview of progressive balance & interest across multiple FYs
     const liveCalculations = useMemo(() => {
         let currentOpening = parseFloat(openingBal) || 0;
         let cumulativeInterest = 0;
         let totalSub = 0;
         let totalWith = 0;
         let totalExcess = 0;
+        let runningProgressive = 0;
+        let yearlyAccruedInt = 0;
+        let yearlyDeposits = 0;
+        let yearlyWithdrawals = 0;
+        let currentFY = null;
 
         const calculatedRows = rows.map((r, idx) => {
             const dep = parseFloat(r.deposit) || 0;
             const withdr = parseFloat(r.withdrawal) || 0;
             const rate = parseFloat(r.rate_of_interest) || 7.1;
-            const intOnDep = r.interest_on_deposit;
+            const intOnDep = r.interest_on_deposit !== false;
+            const isCutMonth = Boolean(r.is_cut_month);
+            const finY = r.financial_year;
 
+            // Transition between Financial Years: Capitalize previous year's interest
+            if (currentFY !== null && finY !== currentFY) {
+                currentOpening = currentOpening + yearlyDeposits - yearlyWithdrawals + Math.round(yearlyAccruedInt);
+                yearlyAccruedInt = 0;
+                yearlyDeposits = 0;
+                yearlyWithdrawals = 0;
+                runningProgressive = 0;
+            }
+            currentFY = finY;
+
+            const effectiveDep = intOnDep ? dep : 0;
             if (intOnDep) {
                 totalSub += dep;
+                yearlyDeposits += dep;
             } else {
                 totalExcess += dep;
             }
             totalWith += withdr;
+            yearlyWithdrawals += withdr;
 
-            // April month (Month 1): Capitalize previous year's interest
-            if (r.accounting_month === 1 && idx > 0) {
-                currentOpening += cumulativeInterest;
-                cumulativeInterest = 0;
+            if (r.accounting_month === 1 || runningProgressive === 0) {
+                runningProgressive = currentOpening + effectiveDep - withdr;
+            } else {
+                runningProgressive += (effectiveDep - withdr);
             }
-
-            const effectiveDep = intOnDep ? dep : 0;
-            const prog = currentOpening + effectiveDep - withdr;
 
             let mInterest = 0;
-            if (!r.is_cut_month && prog > 0) {
-                mInterest = Math.round(((prog * rate) / 1200) * 100) / 100;
+            if (!isCutMonth && runningProgressive > 0) {
+                mInterest = Math.round(((runningProgressive * rate) / 1200) * 100) / 100;
             }
 
+            yearlyAccruedInt += mInterest;
             cumulativeInterest += mInterest;
 
             return {
                 ...r,
-                progressive_balance: Math.round(prog * 100) / 100,
+                opening_balance: r.accounting_month === 1 ? Math.round(currentOpening * 100) / 100 : 0,
+                progressive_balance: Math.round(runningProgressive * 100) / 100,
                 actual_interest: mInterest,
             };
         });
@@ -120,14 +186,60 @@ export default function CalculationSheet({ case_data, calculation_run, opening_b
             (parseFloat(openingBal) || 0) + totalSub + totalExcess - totalWith + cumulativeInterest
         );
 
+        // Group rows by Financial Year for rendering
+        const grouped = {};
+        calculatedRows.forEach((r, originalIdx) => {
+            const fy = r.financial_year || '2024-2025';
+            if (!grouped[fy]) {
+                grouped[fy] = {
+                    financial_year: fy,
+                    rows: [],
+                    opening_balance: r.opening_balance || currentOpening,
+                    total_deposit: 0,
+                    total_withdrawal: 0,
+                    total_interest: 0,
+                    closing_balance: 0,
+                };
+            }
+            grouped[fy].rows.push({ ...r, _originalIdx: originalIdx });
+            grouped[fy].total_deposit += (parseFloat(r.deposit) || 0);
+            grouped[fy].total_withdrawal += (parseFloat(r.withdrawal) || 0);
+            grouped[fy].total_interest += (parseFloat(r.actual_interest) || 0);
+        });
+
+        // Compute FY closing balances
+        Object.values(grouped).forEach((group) => {
+            const firstRow = group.rows[0];
+            const op = firstRow ? (parseFloat(firstRow.opening_balance) || 0) : 0;
+            group.opening_balance = op;
+            group.total_interest_rounded = Math.round(group.total_interest);
+            group.closing_balance = Math.round(op + group.total_deposit - group.total_withdrawal + group.total_interest_rounded);
+        });
+
+        // DLIS calculation (36 months progressive average up to ₹60,000)
+        let dlisAmount = 0;
+        if (dlisAdmissible) {
+            const validRows = calculatedRows.filter((r) => !r.is_cut_month).slice(-36);
+            if (validRows.length > 0) {
+                const sumProg = validRows.reduce((acc, r) => acc + (parseFloat(r.progressive_balance) || 0), 0);
+                const sumInt = validRows.reduce((acc, r) => acc + (parseFloat(r.actual_interest) || 0), 0);
+                const avg = Math.round((sumProg + sumInt) / Math.min(36, validRows.length));
+                dlisAmount = Math.min(60000, avg);
+            }
+        }
+
         return {
             rows: calculatedRows,
+            grouped_by_fy: Object.values(grouped),
             total_subscriptions: totalSub,
+            total_excess: totalExcess,
             total_withdrawals: totalWith,
             total_interest: cumulativeInterest,
             final_closing_balance: finalAmount,
+            dlis_amount: dlisAmount,
+            grand_payable: finalAmount + dlisAmount,
         };
-    }, [openingBal, rows]);
+    }, [openingBal, rows, dlisAdmissible]);
 
     const submit = (e) => {
         e.preventDefault();
@@ -139,30 +251,32 @@ export default function CalculationSheet({ case_data, calculation_run, opening_b
 
     return (
         <AuthenticatedLayout title={`Calculation - ${case_data.registration_no}`}>
-            <Head title={`Calculation Sheet - Case ${case_data.registration_no}`} />
+            <Head title={`Calculation Sheet - ${case_data.registration_no}`} />
 
-            <div className="space-y-6 max-w-7xl mx-auto">
-                {/* Header */}
+            <div className="space-y-6 max-w-7xl mx-auto pb-16">
+                {/* Top Action Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <Link
                             href={`/inward/${case_data.id}`}
-                            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition"
+                            className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition"
                         >
                             <ArrowLeft className="w-4 h-4" />
                         </Link>
                         <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2.5">
                                 <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
                                     <Calculator className="w-5 h-5 text-indigo-400" />
-                                    <span>Interactive GPF Calculation Ledger</span>
+                                    <span>GPF Final Payment Calculation Ledger</span>
                                 </h2>
-                                <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono">
+                                <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono font-semibold">
                                     {case_data.registration_no}
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-400">
-                                Subscriber: <strong className="text-slate-200">{case_data.subscriber_name_cache}</strong> ({case_data.formatted_gpf_account})
+                            <p className="text-xs text-slate-400 mt-0.5">
+                                Subscriber: <strong className="text-slate-200">{case_data.subscriber_name_cache}</strong> | GPF A/C:{' '}
+                                <strong className="text-indigo-300 font-mono">{case_data.formatted_gpf_account}</strong> | Case Type:{' '}
+                                <span className="text-slate-300 font-medium">{case_data.case_type}</span>
                             </p>
                         </div>
                     </div>
@@ -172,173 +286,407 @@ export default function CalculationSheet({ case_data, calculation_run, opening_b
                             type="button"
                             onClick={submit}
                             disabled={processing}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"
                         >
                             <Save className="w-4 h-4" />
-                            <span>{processing ? 'Processing...' : 'Save & Execute Calculation'}</span>
+                            <span>{processing ? 'Calculating & Saving...' : 'Save & Sanction Settlement'}</span>
                         </button>
                     </div>
                 </div>
 
                 {/* Calculation Summary Bar */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    <div className="glass-panel p-3.5 rounded-xl">
-                        <div className="text-[11px] text-slate-400">Opening Balance</div>
-                        <div className="text-base font-bold text-slate-100 mt-0.5 font-mono">
-                            ₹ {Number(openingBal).toLocaleString('en-IN')}
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+                    <div className="glass-panel p-3.5 rounded-xl border border-slate-800">
+                        <div className="text-[11px] text-slate-400">Base Opening Balance</div>
+                        <div className="text-sm font-bold text-slate-100 mt-1 font-mono">
+                            ₹ {Number(openingBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </div>
+                        <div className="text-[10px] text-indigo-400 mt-0.5">{finYear} (VLC)</div>
                     </div>
-                    <div className="glass-panel p-3.5 rounded-xl">
-                        <div className="text-[11px] text-slate-400">Total Deposits</div>
-                        <div className="text-base font-bold text-emerald-400 mt-0.5 font-mono">
-                            + ₹ {Number(liveCalculations.total_subscriptions).toLocaleString('en-IN')}
+                    <div className="glass-panel p-3.5 rounded-xl border border-slate-800">
+                        <div className="text-[11px] text-slate-400">Total Subscriptions</div>
+                        <div className="text-sm font-bold text-emerald-400 mt-1 font-mono">
+                            + ₹ {Number(liveCalculations.total_subscriptions).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">Regular Deposits</div>
                     </div>
-                    <div className="glass-panel p-3.5 rounded-xl">
+                    <div className="glass-panel p-3.5 rounded-xl border border-slate-800">
                         <div className="text-[11px] text-slate-400">Total Withdrawals</div>
-                        <div className="text-base font-bold text-rose-400 mt-0.5 font-mono">
-                            - ₹ {Number(liveCalculations.total_withdrawals).toLocaleString('en-IN')}
+                        <div className="text-sm font-bold text-rose-400 mt-1 font-mono">
+                            - ₹ {Number(liveCalculations.total_withdrawals).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">Debit Adjustments</div>
                     </div>
-                    <div className="glass-panel p-3.5 rounded-xl">
+                    <div className="glass-panel p-3.5 rounded-xl border border-slate-800">
                         <div className="text-[11px] text-slate-400">Accrued Interest</div>
-                        <div className="text-base font-bold text-indigo-400 mt-0.5 font-mono">
-                            + ₹ {Number(liveCalculations.total_interest).toLocaleString('en-IN')}
+                        <div className="text-sm font-bold text-indigo-400 mt-1 font-mono">
+                            + ₹ {Number(liveCalculations.total_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">Compounded Annually</div>
+                    </div>
+                    <div className="glass-panel p-3.5 rounded-xl border border-slate-800">
+                        <div className="text-[11px] text-slate-400">DLIS Insurance</div>
+                        <div className="text-sm font-bold text-amber-400 mt-1 font-mono">
+                            + ₹ {Number(liveCalculations.dlis_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">{dlisAdmissible ? 'Admissible' : 'N/A'}</div>
                     </div>
                     <div className="glass-panel p-3.5 rounded-xl bg-gradient-to-r from-emerald-950/40 to-indigo-950/40 border border-emerald-500/30 col-span-2 sm:col-span-1">
-                        <div className="text-[11px] text-emerald-300 font-semibold">Net Certified Balance</div>
-                        <div className="text-lg font-extrabold text-emerald-400 mt-0.5 font-mono">
-                            ₹ {Number(liveCalculations.final_closing_balance).toLocaleString('en-IN')}
+                        <div className="text-[11px] text-emerald-300 font-semibold">Net Final Settlement</div>
+                        <div className="text-base font-extrabold text-emerald-400 mt-1 font-mono">
+                            ₹ {Number(liveCalculations.grand_payable).toLocaleString('en-IN')}
+                        </div>
+                        <div className="text-[10px] text-emerald-400/80 mt-0.5">Statutory Amount</div>
+                    </div>
+                </div>
+
+                {/* Base Financial Year Selection from VLC */}
+                <div className="glass-panel p-4 rounded-2xl border border-slate-800">
+                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                <Building2 className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                    <span>Base Financial Year & VLC Closing Balance</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+                                        Direct from VLCS.GP_YEARLY_BALANCES
+                                    </span>
+                                </h3>
+                                <p className="text-xs text-slate-400">
+                                    Select the base financial year to automatically fetch the audited closing balance from VLC.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                            <div className="w-full sm:w-72">
+                                <label className="block text-[11px] text-slate-400 mb-1 font-medium">
+                                    Base Financial Year (VLC)
+                                </label>
+                                <select
+                                    value={finYear}
+                                    onChange={(e) => handleBaseFinYearChange(e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-100 font-mono font-semibold focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                >
+                                    {available_base_years && available_base_years.length > 0 ? (
+                                        available_base_years.map((b) => (
+                                            <option key={b.financial_year} value={b.financial_year}>
+                                                {b.financial_year} (Closing Bal: ₹ {Number(b.closing_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })})
+                                            </option>
+                                        ))
+                                    ) : (
+                                        <option value={finYear}>{finYear}</option>
+                                    )}
+                                </select>
+                            </div>
+
+                            <div className="w-full sm:w-48">
+                                <label className="block text-[11px] text-slate-400 mb-1 font-medium">
+                                    Opening Balance (₹)
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={openingBal}
+                                    onChange={(e) => setOpeningBal(parseFloat(e.target.value) || 0)}
+                                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-100 font-mono font-bold focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                />
+                            </div>
+
+                            <div className="flex items-end self-end pt-5">
+                                <button
+                                    type="button"
+                                    onClick={() => addRow()}
+                                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-400 text-xs font-semibold flex items-center gap-1.5 transition border border-slate-700"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>Add Month</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Opening Balance Settings */}
-                <div className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-4 text-xs">
-                    <div className="flex-1 w-full sm:w-auto">
-                        <label className="block text-slate-300 font-medium mb-1">Base Financial Year</label>
-                        <input
-                            type="text"
-                            value={finYear}
-                            onChange={(e) => setFinYear(e.target.value)}
-                            placeholder="e.g. 2023-2024"
-                            className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 font-mono"
-                        />
-                    </div>
-                    <div className="flex-1 w-full sm:w-auto">
-                        <label className="block text-slate-300 font-medium mb-1">Opening Principal Balance (₹)</label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            value={openingBal}
-                            onChange={(e) => setOpeningBal(e.target.value)}
-                            className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 font-mono font-bold"
-                        />
-                    </div>
-                    <div className="flex items-end self-end pt-5">
-                        <button
-                            type="button"
-                            onClick={addRow}
-                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-400 font-semibold flex items-center gap-1.5 transition"
-                        >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Ledger Month</span>
-                        </button>
-                    </div>
+                {/* Multi-Year Calculation Tables Grouped by Financial Year */}
+                <div className="space-y-8">
+                    {liveCalculations.grouped_by_fy.map((group, gIdx) => (
+                        <div key={group.financial_year} className="space-y-4">
+                            {/* FY Section Header */}
+                            <div className="flex items-center justify-between px-1">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
+                                    <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                                        Calculation for Financial Year: {group.financial_year}
+                                    </h3>
+                                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                                        Opening: ₹ {Number(group.opening_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                                <div className="text-xs text-slate-400 font-mono">
+                                    Closing: <strong className="text-indigo-400">₹ {Number(group.closing_balance).toLocaleString('en-IN')}</strong>
+                                </div>
+                            </div>
+
+                            {/* FY Monthly Table */}
+                            <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-xs">
+                                        <thead className="bg-slate-900/90 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+                                            <tr>
+                                                <th className="py-3 px-3">Pay Slip Month</th>
+                                                <th className="py-3 px-3 text-right">Opening Bal (₹)</th>
+                                                <th className="py-3 px-3 text-right">Deposit (₹)</th>
+                                                <th className="py-3 px-3 text-right">Withdrawal (₹)</th>
+                                                <th className="py-3 px-3 text-right">Rate %</th>
+                                                <th className="py-3 px-3 text-center" title="Interest on Deposit Toggle">
+                                                    Int On Dep
+                                                </th>
+                                                <th className="py-3 px-3 text-right">Progressive (₹)</th>
+                                                <th className="py-3 px-3 text-right">Monthly Int (₹)</th>
+                                                <th className="py-3 px-3 text-center" title="Cut Month Toggle">
+                                                    Cut Month
+                                                </th>
+                                                <th className="py-3 px-2 text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800/60 font-mono">
+                                            {group.rows.map((row) => {
+                                                const originalIndex = row._originalIdx;
+                                                const isCut = row.is_cut_month;
+                                                const noInt = row.interest_on_deposit === false;
+
+                                                let rowBg = 'hover:bg-slate-900/40';
+                                                if (isCut) {
+                                                    rowBg = 'bg-rose-950/30 hover:bg-rose-950/40 text-rose-200';
+                                                } else if (noInt) {
+                                                    rowBg = 'bg-cyan-950/20 hover:bg-cyan-950/30 text-cyan-200';
+                                                }
+
+                                                return (
+                                                    <tr key={originalIndex} className={`${rowBg} transition`}>
+                                                        <td className="py-2 px-3">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <input
+                                                                    type="date"
+                                                                    value={row.pay_slip_date}
+                                                                    onChange={(e) => updateRow(originalIndex, 'pay_slip_date', e.target.value)}
+                                                                    className="px-2 py-1 bg-slate-950/70 border border-slate-800 rounded text-[11px] text-slate-200 font-mono"
+                                                                />
+                                                                <span className="text-[10px] text-slate-500 font-sans">
+                                                                    M{row.accounting_month}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-2 px-3 text-right text-slate-400">
+                                                            {row.opening_balance > 0 ? (
+                                                                <span className="text-slate-200 font-semibold">
+                                                                    ₹ {Number(row.opening_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-slate-600">-</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-2 px-3 text-right">
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                value={row.deposit}
+                                                                onChange={(e) => updateRow(originalIndex, 'deposit', parseFloat(e.target.value) || 0)}
+                                                                className="w-24 px-2 py-1 bg-slate-950/70 border border-slate-800 rounded text-right text-emerald-400 font-semibold text-xs"
+                                                            />
+                                                        </td>
+                                                        <td className="py-2 px-3 text-right">
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                value={row.withdrawal}
+                                                                onChange={(e) => updateRow(originalIndex, 'withdrawal', parseFloat(e.target.value) || 0)}
+                                                                className="w-24 px-2 py-1 bg-slate-950/70 border border-slate-800 rounded text-right text-rose-400 font-semibold text-xs"
+                                                            />
+                                                        </td>
+                                                        <td className="py-2 px-3 text-right">
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                value={row.rate_of_interest}
+                                                                onChange={(e) => updateRow(originalIndex, 'rate_of_interest', parseFloat(e.target.value) || 0)}
+                                                                className="w-16 px-1.5 py-1 bg-slate-950/70 border border-slate-800 rounded text-right text-slate-300 text-xs"
+                                                            />
+                                                        </td>
+                                                        <td className="py-2 px-3 text-center">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={row.interest_on_deposit !== false}
+                                                                onChange={(e) => updateRow(originalIndex, 'interest_on_deposit', e.target.checked)}
+                                                                className="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer"
+                                                                title="Toggle interest eligibility"
+                                                            />
+                                                        </td>
+                                                        <td className="py-2 px-3 text-right text-slate-200 font-semibold">
+                                                            ₹ {Number(row.progressive_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="py-2 px-3 text-right text-indigo-400 font-semibold">
+                                                            ₹ {Number(row.actual_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="py-2 px-3 text-center">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={Boolean(row.is_cut_month)}
+                                                                onChange={(e) => updateRow(originalIndex, 'is_cut_month', e.target.checked)}
+                                                                className="rounded bg-slate-900 border-slate-700 text-rose-600 focus:ring-0 cursor-pointer"
+                                                                title="Toggle cut month (no interest computed)"
+                                                            />
+                                                        </td>
+                                                        <td className="py-2 px-2 text-center">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeRow(originalIndex)}
+                                                                className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                                                                title="Delete Month Entry"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                        {/* FY Totals Footer */}
+                                        <tfoot className="bg-slate-900/90 font-mono font-bold border-t border-slate-700 text-slate-200">
+                                            <tr>
+                                                <td className="py-3 px-3 uppercase text-[11px] text-slate-400">
+                                                    FY {group.financial_year} TOTALS
+                                                </td>
+                                                <td className="py-3 px-3 text-right text-indigo-300">
+                                                    ₹ {Number(group.opening_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                </td>
+                                                <td className="py-3 px-3 text-right text-emerald-400">
+                                                    ₹ {Number(group.total_deposit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                </td>
+                                                <td className="py-3 px-3 text-right text-rose-400">
+                                                    ₹ {Number(group.total_withdrawal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                </td>
+                                                <td colSpan={3} className="py-3 px-3 text-right text-slate-400 text-[11px]">
+                                                    Interest Sum:
+                                                </td>
+                                                <td className="py-3 px-3 text-right text-indigo-400">
+                                                    ₹ {Number(group.total_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                </td>
+                                                <td colSpan={2} className="py-3 px-3 text-center text-emerald-400 text-xs">
+                                                    Closing: ₹ {Number(group.closing_balance).toLocaleString('en-IN')}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
-                {/* Ledger Spreadsheet Grid */}
-                <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-900/80 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
-                                <tr>
-                                    <th className="py-3 px-3">Month / Date</th>
-                                    <th className="py-3 px-3 text-right">Deposit (₹)</th>
-                                    <th className="py-3 px-3 text-right">Withdrawal (₹)</th>
-                                    <th className="py-3 px-3 text-right">Rate %</th>
-                                    <th className="py-3 px-3 text-center">Int Eligible</th>
-                                    <th className="py-3 px-3 text-right">Progressive (₹)</th>
-                                    <th className="py-3 px-3 text-right">Monthly Int (₹)</th>
-                                    <th className="py-3 px-3 text-center">Cut Month</th>
-                                    <th className="py-3 px-2 text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800/60 font-mono">
-                                {liveCalculations.rows.map((row, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-900/40 transition">
-                                        <td className="py-2.5 px-3">
-                                            <input
-                                                type="date"
-                                                value={row.pay_slip_date}
-                                                onChange={(e) => updateRow(idx, 'pay_slip_date', e.target.value)}
-                                                className="px-2 py-1 bg-slate-950/60 border border-slate-800 rounded text-[11px] text-slate-200"
-                                            />
-                                        </td>
-                                        <td className="py-2.5 px-3 text-right">
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                value={row.deposit}
-                                                onChange={(e) => updateRow(idx, 'deposit', parseFloat(e.target.value) || 0)}
-                                                className="w-24 px-2 py-1 bg-slate-950/60 border border-slate-800 rounded text-right text-emerald-400 font-semibold"
-                                            />
-                                        </td>
-                                        <td className="py-2.5 px-3 text-right">
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                value={row.withdrawal}
-                                                onChange={(e) => updateRow(idx, 'withdrawal', parseFloat(e.target.value) || 0)}
-                                                className="w-24 px-2 py-1 bg-slate-950/60 border border-slate-800 rounded text-right text-rose-400 font-semibold"
-                                            />
-                                        </td>
-                                        <td className="py-2.5 px-3 text-right">
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                value={row.rate_of_interest}
-                                                onChange={(e) => updateRow(idx, 'rate_of_interest', parseFloat(e.target.value) || 0)}
-                                                className="w-16 px-1.5 py-1 bg-slate-950/60 border border-slate-800 rounded text-right text-slate-300"
-                                            />
-                                        </td>
-                                        <td className="py-2.5 px-3 text-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={row.interest_on_deposit}
-                                                onChange={(e) => updateRow(idx, 'interest_on_deposit', e.target.checked)}
-                                                className="rounded bg-slate-900 border-slate-700 text-indigo-600"
-                                            />
-                                        </td>
-                                        <td className="py-2.5 px-3 text-right text-slate-200 font-semibold">
-                                            ₹ {Number(row.progressive_balance).toLocaleString('en-IN')}
-                                        </td>
-                                        <td className="py-2.5 px-3 text-right text-indigo-400 font-semibold">
-                                            ₹ {Number(row.actual_interest).toLocaleString('en-IN')}
-                                        </td>
-                                        <td className="py-2.5 px-3 text-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={row.is_cut_month}
-                                                onChange={(e) => updateRow(idx, 'is_cut_month', e.target.checked)}
-                                                className="rounded bg-slate-900 border-slate-700 text-rose-600"
-                                            />
-                                        </td>
-                                        <td className="py-2.5 px-2 text-center">
-                                            <button
-                                                type="button"
-                                                onClick={() => removeRow(idx)}
-                                                className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
-                                                title="Delete Row"
-                                            >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                {/* DLIS & Sanction Approval Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* DLIS Sanction Scheme */}
+                    <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <ShieldCheck className="w-5 h-5 text-amber-400" />
+                                <h4 className="text-sm font-bold text-white">Deposit-Linked Insurance Scheme (DLIS)</h4>
+                            </div>
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300 font-medium">
+                                <input
+                                    type="checkbox"
+                                    checked={dlisAdmissible}
+                                    onChange={(e) => setDlisAdmissible(e.target.checked)}
+                                    className="rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0"
+                                />
+                                <span>DLIS Admissible</span>
+                            </label>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                            Under Tripura GPF Rules, for Death in Service cases, insurance coverage equal to the average balance
+                            over the preceding 36 months is admissible up to a statutory ceiling of{' '}
+                            <strong className="text-amber-300">₹ 60,000.00</strong>.
+                        </p>
+                        {dlisAdmissible && (
+                            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
+                                <div>
+                                    <div className="text-xs font-semibold text-amber-300">Sanctioned DLIS Amount</div>
+                                    <div className="text-[11px] text-amber-400/80">36-month progressive balance average</div>
+                                </div>
+                                <div className="text-lg font-bold font-mono text-amber-400">
+                                    ₹ {Number(liveCalculations.dlis_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Final Settlement Breakdown Card */}
+                    <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-3 bg-gradient-to-br from-slate-900/90 to-indigo-950/20">
+                        <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider">
+                            <Coins className="w-4 h-4" />
+                            <span>Sanction Settlement Final Audit</span>
+                        </div>
+                        <div className="space-y-2 text-xs font-mono">
+                            <div className="flex justify-between py-1 border-b border-slate-800 text-slate-300">
+                                <span>Base Opening Principal Balance:</span>
+                                <span className="text-white">
+                                    ₹ {Number(openingBal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-800 text-slate-300">
+                                <span>Total Subscriptions & Credits:</span>
+                                <span className="text-emerald-400">
+                                    + ₹ {Number(liveCalculations.total_subscriptions).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            {liveCalculations.total_excess > 0 && (
+                                <div className="flex justify-between py-1 border-b border-slate-800 text-slate-300">
+                                    <span>Total Excess Deposits (No Int):</span>
+                                    <span className="text-cyan-400">
+                                        + ₹ {Number(liveCalculations.total_excess).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="flex justify-between py-1 border-b border-slate-800 text-slate-300">
+                                <span>Total Accrued Compounded Interest:</span>
+                                <span className="text-indigo-400">
+                                    + ₹ {Number(liveCalculations.total_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-800 text-slate-300">
+                                <span>Less Withdrawals & Debits:</span>
+                                <span className="text-rose-400">
+                                    - ₹ {Number(liveCalculations.total_withdrawals).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            {dlisAdmissible && (
+                                <div className="flex justify-between py-1 border-b border-slate-800 text-slate-300">
+                                    <span>DLIS Insurance Coverage:</span>
+                                    <span className="text-amber-400">
+                                        + ₹ {Number(liveCalculations.dlis_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="flex justify-between pt-2 text-sm font-bold text-emerald-400">
+                                <span className="font-sans">Grand Total Certified Payable:</span>
+                                <span>₹ {Number(liveCalculations.grand_payable).toLocaleString('en-IN')}</span>
+                            </div>
+                        </div>
+
+                        <div className="pt-2">
+                            <button
+                                type="button"
+                                onClick={submit}
+                                disabled={processing}
+                                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2"
+                            >
+                                <Save className="w-4 h-4" />
+                                <span>{processing ? 'Processing...' : 'Save & Sanction Settlement'}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -2,6 +2,9 @@
 
 namespace App\Services\Integration;
 
+use App\Models\InwardCase;
+use App\Models\InterestRateSlab;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -646,6 +649,236 @@ class OracleMasterBridge
     }
 
     /**
+     * Retrieve all available yearly balances and Base Financial Years for a subscriber from VLCS.GP_YEARLY_BALANCES
+     */
+    public function getAvailableClosingBalances(string $seriesCode, string $accountNo): Collection
+    {
+        $conn = $this->getConnection();
+        $cleanAccount = preg_replace('/[^0-9]/', '', $accountNo);
+        $cleanAccountInt = (int) $cleanAccount;
+
+        if ($conn) {
+            try {
+                $this->validateTableAccess('GP_YEARLY_BALANCES');
+                $stmt = oci_parse($conn, "
+                    SELECT a.SERIES_ID, a.ACCOUNT_NO, a.FIN_YEAR_CODE, b.FIN_YEAR,
+                           NVL(a.OP_BALANCE_WITHDRAWL, 0) AS OP_BALANCE_WITHDRAWL,
+                           NVL(a.CL_BAL_WITHDRAWL, 0) AS CL_BAL_WITHDRAWL,
+                           NVL(a.INTR_WITHDRAWL, 0) AS INTR_WITHDRAWL,
+                           a.DATE_OF_CLOSURE, a.ACCOUNT_CLOSED_TAG
+                    FROM VLCS.GP_YEARLY_BALANCES a
+                    LEFT JOIN VLCS.MM_FINANCIAL_YEAR b ON TO_CHAR(a.FIN_YEAR_CODE) = TO_CHAR(b.FIN_YEAR_CODE)
+                    WHERE (a.ACCOUNT_NO = :acct_num OR TO_CHAR(a.ACCOUNT_NO) = :acct_str)
+                      AND a.FIN_YEAR_CODE IS NOT NULL
+                      AND a.CL_BAL_WITHDRAWL IS NOT NULL
+                    ORDER BY TO_NUMBER(REGEXP_SUBSTR(a.FIN_YEAR_CODE, '^[0-9]+')) DESC
+                ");
+                oci_bind_by_name($stmt, ':acct_num', $cleanAccountInt);
+                oci_bind_by_name($stmt, ':acct_str', $cleanAccount);
+
+                if (@oci_execute($stmt)) {
+                    $balances = [];
+                    while ($row = oci_fetch_assoc($stmt)) {
+                        $finYearLabel = trim($row['FIN_YEAR'] ?? '');
+                        if (empty($finYearLabel)) {
+                            $code = (int) $row['FIN_YEAR_CODE'];
+                            $startYr = 1998 + $code;
+                            $finYearLabel = "$startYr-" . ($startYr + 1);
+                        }
+
+                        $balances[] = [
+                            'fin_year_code' => trim($row['FIN_YEAR_CODE']),
+                            'financial_year' => $finYearLabel,
+                            'closing_balance' => (float) $row['CL_BAL_WITHDRAWL'],
+                            'opening_balance' => (float) $row['OP_BALANCE_WITHDRAWL'],
+                            'interest' => (float) $row['INTR_WITHDRAWL'],
+                            'is_closed' => strtoupper(trim($row['ACCOUNT_CLOSED_TAG'] ?? '')) === 'Y',
+                        ];
+                    }
+                    oci_free_statement($stmt);
+                    if (!empty($balances)) {
+                        return collect($balances);
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning('OracleMasterBridge::getAvailableClosingBalances error: ' . $e->getMessage());
+            }
+        }
+
+        // Fallback list of financial years
+        return collect([
+            ['fin_year_code' => '26', 'financial_year' => '2024-2025', 'closing_balance' => 0.0, 'opening_balance' => 0.0, 'interest' => 0.0, 'is_closed' => false],
+            ['fin_year_code' => '25', 'financial_year' => '2023-2024', 'closing_balance' => 0.0, 'opening_balance' => 0.0, 'interest' => 0.0, 'is_closed' => false],
+            ['fin_year_code' => '24', 'financial_year' => '2022-2023', 'closing_balance' => 0.0, 'opening_balance' => 0.0, 'interest' => 0.0, 'is_closed' => false],
+        ]);
+    }
+
+    /**
+     * Retrieve raw monthly vouchers from VLCS.GP_VOUCHER_ACC_DETAILS
+     */
+    public function getVouchers(string $seriesCode, string $accountNo): array
+    {
+        $conn = $this->getConnection();
+        $cleanAccount = preg_replace('/[^0-9]/', '', $accountNo);
+        $cleanAccountInt = (int) $cleanAccount;
+        $vouchersByMonth = [];
+
+        if ($conn) {
+            try {
+                $this->validateTableAccess('GP_VOUCHER_ACC_DETAILS');
+                $stmt = oci_parse($conn, "
+                    SELECT TO_CHAR(a.PAY_SLIP_DATE, 'YYYY-MM') as CAL_MONTH,
+                           TO_CHAR(a.PAY_SLIP_DATE, 'YYYY-MM-DD') as PAY_SLIP_DATE,
+                           NVL(a.SUBSCRIPTION_AMT, 0) as SUBSCRIPTION_AMT,
+                           NVL(a.REFUND_AMT, 0) as REFUND_AMT,
+                           NVL(a.WITHDRAWAL_AMT, 0) as WITHDRAWAL_AMT,
+                           a.VOUCHER_NO, a.ABSTRACT_NO
+                    FROM VLCS.GP_VOUCHER_ACC_DETAILS a
+                    WHERE (a.ACCOUNT_NO = :acct_num OR TO_CHAR(a.ACCOUNT_NO) = :acct_str)
+                      AND a.POSTING_TYPE != 'F' AND a.TAG = 'Y'
+                    ORDER BY a.PAY_SLIP_DATE ASC
+                ");
+                oci_bind_by_name($stmt, ':acct_num', $cleanAccountInt);
+                oci_bind_by_name($stmt, ':acct_str', $cleanAccount);
+
+                if (@oci_execute($stmt)) {
+                    while ($row = oci_fetch_assoc($stmt)) {
+                        $m = $row['CAL_MONTH'];
+                        $vouchersByMonth[$m] = [
+                            'deposit' => (float) ($row['SUBSCRIPTION_AMT'] + $row['REFUND_AMT']),
+                            'withdrawal' => (float) $row['WITHDRAWAL_AMT'],
+                            'subscription' => (float) $row['SUBSCRIPTION_AMT'],
+                            'refund' => (float) $row['REFUND_AMT'],
+                            'voucher_no' => $row['VOUCHER_NO'] ?? '',
+                            'abstract_no' => $row['ABSTRACT_NO'] ?? '',
+                            'pay_slip_date' => $row['PAY_SLIP_DATE'],
+                        ];
+                    }
+                    oci_free_statement($stmt);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('OracleMasterBridge::getVouchers error: ' . $e->getMessage());
+            }
+        }
+
+        return $vouchersByMonth;
+    }
+
+    /**
+     * Build multi-year monthly calculation ledger starting from Base Financial Year up to cutoff date
+     */
+    public function buildMultiYearLedger(InwardCase $case, ?string $baseFinYear = null, ?float $baseOpeningBal = null): array
+    {
+        $availableBalances = $this->getAvailableClosingBalances($case->series_code, $case->account_no);
+        $vouchersByMonth = $this->getVouchers($case->series_code, $case->account_no);
+
+        // 1. Resolve Base Financial Year & Base Opening Balance
+        if ($baseFinYear) {
+            $matched = $availableBalances->firstWhere('financial_year', $baseFinYear);
+            if ($matched && $baseOpeningBal === null) {
+                $baseOpeningBal = (float) $matched['closing_balance'];
+            }
+        }
+
+        if (!$baseFinYear || $baseOpeningBal === null) {
+            $latestClosed = $availableBalances->first(fn ($b) => $b['closing_balance'] > 0) ?? $availableBalances->first();
+            if ($latestClosed && $latestClosed['closing_balance'] > 0) {
+                $baseFinYear = $latestClosed['financial_year'];
+                $baseOpeningBal = (float) $latestClosed['closing_balance'];
+            } else {
+                $baseFinYear = '2023-2024';
+                $baseOpeningBal = 0.00;
+            }
+        }
+
+        // 2. Resolve calculation end date (interest allowed upto)
+        $cutoffDate = app(\App\Services\Calculation\CutoffRuleResolver::class)->resolveCutoffDate($case);
+        
+        // Start date = April 1st of the year immediately following baseFinYear
+        $startYear = (int) substr($baseFinYear, 0, 4) + 1;
+        $startDate = Carbon::create($startYear, 4, 1);
+
+        // Ensure calculation spans up to cutoff date or at least 1 full year
+        $calcEndDate = $cutoffDate->greaterThan($startDate) ? $cutoffDate : (clone $startDate)->addMonths(11);
+        if ($calcEndDate->diffInMonths($startDate) < 11) {
+            $calcEndDate = (clone $startDate)->addMonths(11);
+        }
+
+        $currentDate = clone $startDate;
+        $runningOpening = $baseOpeningBal;
+        $runningProgressive = 0.00;
+        $yearlyInterest = 0.00;
+        $yearlyDeposits = 0.00;
+        $yearlyWithdrawals = 0.00;
+        $currentFY = null;
+        $monthlyLedger = [];
+
+        while ($currentDate->lessThanOrEqualTo($calcEndDate)) {
+            $calMonth = $currentDate->format('Y-m');
+            $m = $currentDate->month;
+            $y = $currentDate->year;
+            $finYear = ($m >= 4) ? "$y-" . ($y + 1) : ($y - 1) . "-$y";
+            $accountingMonth = ($m >= 4) ? $m - 3 : $m + 9;
+
+            // Transition to new FY: capitalize prior year's interest & net transactions
+            if ($currentFY !== null && $finYear !== $currentFY) {
+                $runningOpening = $runningOpening + $yearlyDeposits - $yearlyWithdrawals + round($yearlyInterest);
+                $yearlyInterest = 0.00;
+                $yearlyDeposits = 0.00;
+                $yearlyWithdrawals = 0.00;
+                $runningProgressive = 0.00;
+            }
+            $currentFY = $finYear;
+
+            $voucher = $vouchersByMonth[$calMonth] ?? null;
+            $deposit = $voucher ? (float) $voucher['deposit'] : 0.00;
+            $withdrawal = $voucher ? (float) $voucher['withdrawal'] : 0.00;
+            $rate = InterestRateSlab::getRateForDate($currentDate->toDateString()) ?? 7.1000;
+            $isCutMonth = $currentDate->isSameMonth($cutoffDate);
+
+            if ($accountingMonth === 1 || $runningProgressive == 0) {
+                $runningProgressive = $runningOpening + $deposit - $withdrawal;
+            } else {
+                $runningProgressive += ($deposit - $withdrawal);
+            }
+
+            $monthlyInt = $isCutMonth ? 0.00 : round(($runningProgressive * $rate) / 1200, 2);
+            $yearlyInterest += $monthlyInt;
+            $yearlyDeposits += $deposit;
+            $yearlyWithdrawals += $withdrawal;
+
+            $monthlyLedger[] = [
+                'financial_year' => $finYear,
+                'calendar_month' => $calMonth,
+                'pay_slip_date' => $currentDate->format('Y-m-d'),
+                'interest_date' => $currentDate->format('Y-m-d'),
+                'accounting_month' => $accountingMonth,
+                'opening_balance' => round($runningOpening, 2),
+                'deposit' => $deposit,
+                'withdrawal' => $withdrawal,
+                'rate_of_interest' => $rate,
+                'interest_on_deposit' => true,
+                'progressive_balance' => round($runningProgressive, 2),
+                'actual_interest' => $monthlyInt,
+                'delay_interest' => 0.00,
+                'is_cut_month' => $isCutMonth,
+                'is_adjustment' => false,
+                'voucher_no' => $voucher['voucher_no'] ?? null,
+                'abstract_no' => $voucher['abstract_no'] ?? null,
+            ];
+
+            $currentDate->addMonth();
+        }
+
+        return [
+            'base_fin_year' => $baseFinYear,
+            'opening_balance' => $baseOpeningBal,
+            'available_base_years' => $availableBalances,
+            'monthly_ledger' => $monthlyLedger,
+        ];
+    }
+
+    /**
      * Retrieve historic monthly subscriptions from Oracle 11g (gpffp.GPF_SUBSCRIPTION & VLCS tables)
      */
     public function getSubscriptions(string $seriesCode, string $accountNo, ?string $regdNo = null): array
@@ -670,7 +903,7 @@ class OracleMasterBridge
                         NVL(ADJUSTMENT_NO, '0') AS ADJUSTMENT_NO,
                         INT_ALLOW
                     FROM gpffp.GPF_SUBSCRIPTION
-                    WHERE (REGD_NO = :regd OR (ACCOUNT_NO = :acct AND SERIES_ID = :series))
+                    WHERE (REGD_NO = :regd OR (TRIM(ACCOUNT_NO) = :acct AND SERIES_ID = :series))
                     ORDER BY PAY_SLIP_DATE ASC, INTEREST_DATE ASC
                 ";
 

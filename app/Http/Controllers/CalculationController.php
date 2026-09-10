@@ -23,7 +23,7 @@ class CalculationController extends Controller
         protected \App\Services\Integration\OracleMasterBridge $oracleBridge,
     ) {}
 
-    public function show(string $caseId): Response
+    public function show(string $caseId, Request $request): Response
     {
         $case = InwardCase::with([
             'latestCalculationRun.monthlyBreakdowns',
@@ -32,12 +32,19 @@ class CalculationController extends Controller
 
         $latestRun = $case->latestCalculationRun;
 
-        // If no calculation run yet, prepare default sample entries from event date / opening balance
-        $monthlyLedger = [];
-        $openingBalance = 0.00;
-        $openingFinYear = '2023-2024';
+        // Fetch available Base Financial Years and closing balances from VLC
+        $availableBaseYears = $this->oracleBridge->getAvailableClosingBalances($case->series_code, $case->account_no);
 
-        if ($latestRun) {
+        $requestedBaseYear = $request->query('base_fin_year');
+        $requestedOpeningBal = $request->has('opening_balance') ? (float) $request->query('opening_balance') : null;
+
+        if ($requestedBaseYear || !$latestRun) {
+            // Build dynamic multi-year progressive ledger from Base Financial Year to Cutoff Date
+            $built = $this->oracleBridge->buildMultiYearLedger($case, $requestedBaseYear, $requestedOpeningBal);
+            $openingFinYear = $built['base_fin_year'];
+            $openingBalance = $built['opening_balance'];
+            $monthlyLedger = $built['monthly_ledger'];
+        } else {
             $openingBalance = (float) $latestRun->opening_balance_amount;
             $openingFinYear = $latestRun->opening_fin_year;
             $monthlyLedger = $latestRun->monthlyBreakdowns->map(fn ($r) => [
@@ -45,6 +52,7 @@ class CalculationController extends Controller
                 'financial_year' => $r->financial_year,
                 'calendar_month' => $r->calendar_month,
                 'pay_slip_date' => $r->pay_slip_date->format('Y-m-d'),
+                'interest_date' => $r->interest_date ? $r->interest_date->format('Y-m-d') : $r->pay_slip_date->format('Y-m-d'),
                 'accounting_month' => $r->accounting_month,
                 'opening_balance' => (float) $r->opening_balance,
                 'deposit' => (float) $r->deposit,
@@ -56,68 +64,15 @@ class CalculationController extends Controller
                 'delay_interest' => (float) $r->delay_interest,
                 'is_cut_month' => $r->is_cut_month,
                 'is_adjustment' => $r->is_adjustment,
-            ]);
-        } else {
-            // Check if real subscription ledger exists in Oracle 11g
-            $oracleSubs = $this->oracleBridge->getSubscriptions($case->series_code, $case->account_no);
-            
-            if (!empty($oracleSubs)) {
-                $openingBalance = 0.00;
-                $runningProgressive = 0.00;
-                foreach ($oracleSubs as $idx => $s) {
-                    $pDate = Carbon::parse($s['pay_slip_date']);
-                    $rate = InterestRateSlab::getRateForDate($pDate->toDateString()) ?? 7.1000;
-                    $deposit = (float) $s['deposit'];
-                    $withdrawal = (float) $s['withdrawal'];
-                    $runningProgressive += ($deposit - $withdrawal);
-
-                    $monthlyLedger[] = [
-                        'financial_year' => $s['financial_year'] ?: '2023-2024',
-                        'calendar_month' => $pDate->format('Y-m'),
-                        'pay_slip_date' => $pDate->format('Y-m-d'),
-                        'accounting_month' => ($idx % 12) + 1,
-                        'opening_balance' => $openingBalance,
-                        'deposit' => $deposit,
-                        'withdrawal' => $withdrawal,
-                        'rate_of_interest' => $rate,
-                        'interest_on_deposit' => $s['interest_allowed'],
-                        'progressive_balance' => $runningProgressive,
-                        'actual_interest' => round(($runningProgressive * $rate) / 1200, 2),
-                        'delay_interest' => 0.00,
-                        'is_cut_month' => false,
-                        'is_adjustment' => false,
-                    ];
-                }
-            } else {
-                // Seed a default 12-month ledger for interactive preview
-                $openingBalance = 450000.00;
-                $startDate = Carbon::create(2023, 4, 1);
-                for ($i = 0; $i < 12; $i++) {
-                    $mDate = (clone $startDate)->addMonths($i);
-                    $rate = InterestRateSlab::getRateForDate($mDate->toDateString()) ?? 7.1000;
-                    $monthlyLedger[] = [
-                        'financial_year' => '2023-2024',
-                        'calendar_month' => $mDate->format('Y-m'),
-                        'pay_slip_date' => $mDate->format('Y-m-d'),
-                        'accounting_month' => $i + 1,
-                        'opening_balance' => $openingBalance,
-                        'deposit' => 15000.00,
-                        'withdrawal' => 0.00,
-                        'rate_of_interest' => $rate,
-                        'interest_on_deposit' => true,
-                        'progressive_balance' => $openingBalance + 15000,
-                        'actual_interest' => round((($openingBalance + 15000) * $rate) / 1200, 2),
-                        'delay_interest' => 0.00,
-                        'is_cut_month' => false,
-                        'is_adjustment' => false,
-                    ];
-                }
-            }
+                'voucher_no' => $r->voucher_no,
+                'abstract_no' => $r->abstract_no,
+            ])->toArray();
         }
 
         return Inertia::render('Calculation/CalculationSheet', [
             'case_data' => $case,
             'calculation_run' => $latestRun,
+            'available_base_years' => $availableBaseYears,
             'opening_balance' => $openingBalance,
             'opening_fin_year' => $openingFinYear,
             'monthly_ledger' => $monthlyLedger,

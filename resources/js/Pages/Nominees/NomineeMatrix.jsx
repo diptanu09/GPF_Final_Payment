@@ -19,6 +19,7 @@ export default function NomineeMatrix({ case_data, nominees, final_amount }) {
             : [
                   {
                       nominee_name: case_data.spouse_name || case_data.subscriber_name_cache || '',
+                      beneficiary_code: case_data.beneficiary_code || '',
                       relationship: case_data.spouse_relation || 'Spouse',
                       share_percentage: 100.0,
                       bank_account_no: '',
@@ -46,6 +47,7 @@ export default function NomineeMatrix({ case_data, nominees, final_amount }) {
         const remainingPercentage = Math.max(0, 100 - totalPercentage);
         const newNominee = {
             nominee_name: '',
+            beneficiary_code: '',
             relationship: 'Son',
             share_percentage: remainingPercentage,
             bank_account_no: '',
@@ -196,7 +198,7 @@ export default function NomineeMatrix({ case_data, nominees, final_amount }) {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
+                                <div className="grid grid-cols-1 sm:grid-cols-6 gap-4 text-xs">
                                     <div className="sm:col-span-2">
                                         <label className="block text-slate-300 font-medium mb-1">
                                             Nominee Legal Name <span className="text-rose-400">*</span>
@@ -212,6 +214,19 @@ export default function NomineeMatrix({ case_data, nominees, final_amount }) {
                                     </div>
 
                                     <div>
+                                        <label className="block text-slate-300 font-medium mb-1">
+                                            Beneficiary Code
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={nominee.beneficiary_code || ''}
+                                            onChange={(e) => updateNominee(idx, 'beneficiary_code', e.target.value)}
+                                            placeholder="e.g. BEN-98421"
+                                            className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 font-mono"
+                                        />
+                                    </div>
+
+                                    <div className="sm:col-span-2">
                                         <label className="block text-slate-300 font-medium mb-1">
                                             Relationship <span className="text-rose-400">*</span>
                                         </label>
@@ -233,7 +248,7 @@ export default function NomineeMatrix({ case_data, nominees, final_amount }) {
 
                                     <div>
                                         <label className="block text-slate-300 font-medium mb-1">
-                                            Share Percentage (%) <span className="text-rose-400">*</span>
+                                            Share (%) <span className="text-rose-400">*</span>
                                         </label>
                                         <input
                                             type="number"

@@ -14,6 +14,7 @@ class CaseNominee extends Model
     protected $fillable = [
         'inward_case_id',
         'nominee_name',
+        'beneficiary_code',
         'relationship',
         'share_percentage',
         'allocated_amount',

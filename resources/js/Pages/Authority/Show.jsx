@@ -222,6 +222,7 @@ export default function Show({ authority, case_data, calculation, nominees }) {
                                     <thead className="bg-slate-900/60 text-slate-400 font-semibold">
                                         <tr>
                                             <th className="py-2 px-3">Nominee Name</th>
+                                            <th className="py-2 px-3">Beneficiary Code</th>
                                             <th className="py-2 px-3">Relation</th>
                                             <th className="py-2 px-3">Share %</th>
                                             <th className="py-2 px-3 text-right">Allocated Amount</th>
@@ -231,6 +232,7 @@ export default function Show({ authority, case_data, calculation, nominees }) {
                                         {nominees.map((n) => (
                                             <tr key={n.id}>
                                                 <td className="py-2 px-3 font-semibold text-slate-200">{n.nominee_name}</td>
+                                                <td className="py-2 px-3 font-mono text-indigo-400">{n.beneficiary_code || 'N/A'}</td>
                                                 <td className="py-2 px-3 text-slate-400">{n.relationship}</td>
                                                 <td className="py-2 px-3 font-mono">{n.share_percentage}%</td>
                                                 <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
