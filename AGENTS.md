@@ -1,6 +1,6 @@
 # GPF Final Payment Portal - Project Architecture & Institutional Memory
 
-This document contains the complete architectural specification, database mappings, workflow rules, and integration guidelines for the **GPF Final Payment Portal**. This file serves as permanent agent memory and must be referenced across all future iterations.
+This document contains the complete architectural specification, database mappings, workflow rules, calculation math, legacy formats, and integration guidelines for the **GPF Final Payment Portal**. This file serves as permanent agent memory and is automatically referenced whenever this project is opened.
 
 ---
 
@@ -8,12 +8,12 @@ This document contains the complete architectural specification, database mappin
 
 - **Backend Framework**: Laravel 12 (PHP 8.2+)
 - **Frontend Framework**: Inertia.js with React 19, Tailwind CSS v4, Lucide Icons, Vite
-- **Primary Database (Application Storage)**:
+- **Primary Database (Application Storage & Replica)**:
   - **Engine**: PostgreSQL 18
   - **Host**: `10.47.240.169:5432`
   - **Database**: `gpf_final_payment`
   - **User**: `postgres` | **Password**: `root@123`
-  - **Contents**: Stores users, inward cases, calculation runs, monthly breakdowns, nominees, authorities, digital signature audits, workflow history, and PostgreSQL replica tables.
+  - **Contents**: Stores users, inward cases, calculation runs, monthly breakdowns, nominees, authorities, digital signature audits, workflow history, and PostgreSQL replica tables (`gp_accounts`, `gp_applications`, `gp_yearly_balances`, `state_ddo`, `state_treasury`, `mm_gpf_series`, `gp_missing_credit`).
 - **Legacy Source Database (Master Data & Historical Records)**:
   - **Engine**: Oracle 11g Enterprise
   - **Host**: `192.168.100.247:1521` (SID: `db11g`)
@@ -54,9 +54,9 @@ This document contains the complete architectural specification, database mappin
 
 ---
 
-## 3. User Accounts & Role-Based Access Control
+## 3. Real Institutional Users & Role-Based Access Control
 
-The system uses institutional user accounts imported from `gpffp.USER_ACCOUNTS` (no dummy/mock users):
+The system exclusively uses institutional user accounts imported from `gpffp.USER_ACCOUNTS` (no dummy/mock users). Passwords are securely hashed with bcrypt (`secret123` / individual secure credentials):
 
 | Username | Name / Designation | System Role | Capabilities |
 | :--- | :--- | :--- | :--- |
@@ -69,7 +69,7 @@ The system uses institutional user accounts imported from `gpffp.USER_ACCOUNTS` 
 
 ---
 
-## 4. Subscriber Lookup & Inward Pipeline
+## 4. Subscriber Inward Registration Pipeline
 
 When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSubscriber` executes the following prioritized pipeline:
 
@@ -88,14 +88,66 @@ When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSub
 
 ---
 
-## 5. GPF Final Payment Workflow States
+## 5. Calculation Engine & Business Rules
+
+1. **Base Financial Year & Opening Balance**:
+   - Fetched dynamically from `VLCS.GP_ACCOUNTS` / `gp_yearly_balances` based on the latest closed FY.
+   - Supports multi-year spans (e.g., Base FY 2023-2024 to Current FY 2026-2027) with progressive compounding at annual FY interest rates (default statutory: **7.10% per annum**).
+2. **Cut Month & Interest Suppression Rule**:
+   - Subscriptions and withdrawals occurring **after** the interest cut month (event month) are excluded from balance and earn **zero** interest.
+   - For months after the cut month within the event FY, the interest computed is strictly `0.00`.
+3. **Delay Interest Calculation**:
+   - When payment is processed after the event FY (or after interest cut month), delayed interest is computed on the final closing balance for each delayed month:
+     $$\text{Delayed Interest} = \frac{\text{Closing Balance} \times \text{Rate} \times \text{Delayed Months}}{1200}$$
+   - Both `actual_interest_computed` and `delayed_interest_computed` are recorded separately and summed in `total_interest_computed`.
+4. **Deposit-Linked Insurance Scheme (DLIS)**:
+   - Admissible on `CaseType::DEATH_IN_SERVICE` (`pension_type_id = '2'` or `'7'`).
+   - Maximum statutory coverage: **₹60,000**.
+   - Cites Govt. of Tripura Finance Dept. O.M. No. `F.12(7)/FIN(G)/75` dated 18-02-76 and Debit Head `2235-60-104`.
+5. **Nominee / Beneficiary Matrix**:
+   - Multiple nominees supported with exact `beneficiary_code`, `relationship`, `share_percentage`, and `allocated_amount`.
+   - Odd paisa remainder is automatically reconciled to ensure the sum equals the exact net payable balance.
+6. **Missing Credits**:
+   - Retrieved from `VLCS.GP_MISSING_CREDIT` for uncredited deduction adjustments.
+
+---
+
+## 6. Statutory AG Tripura Authority PDF Formats
+
+### A. Final Payment Authority Letter (`pdf/authority_letter.blade.php`)
+- **Bilingual Official Header**:
+  - `महालेखाकार का कार्यालय (लेखा एवं हक), त्रिपुरा - अगरतला`
+  - `OFFICE OF THE ACCOUNTANT GENERAL (A & E), TRIPURA ::: AGARTALA`
+  - CAG Logo (`public/images/cag_logo.png`) & Ashok Stambh (`public/images/ashok_stambh.png`) with offline base64 fallback.
+- **Memo Numbering**: `No. {SECTION} / FP / [{Revised /}] {PENSION_TYPE} / {OPENING_FIN_YEAR} / {REGISTRATION_NO} /` (e.g. `No. Fund Section I / FP / FAM / 2023-2024 / 202616135951 /`).
+- **Statutory Legal Rules**: Rule 31/32/33 of Central GPF Rules 1960 / Rule 28 of AIS GPF Rules 1955; Debit Head `8009-01-101` (State) and `8009-01-104` (AIS).
+- **5-Column Working Breakdown Table**:
+  1. `O.B. as at the beginning of the year`
+  2. `Subscription / Refund during the year`
+  3. `Withdrawal / Advance`
+  4. `Interest (Actual + Delayed)`
+  5. `Closing balance`
+- **Currency in Words**: Formatted using `IndianCurrencyFormatter::toWords()` (*Crore, Lakh, Thousand, Hundred, Rupees, Paise*).
+- **Copy Forwarded (Endorsements)**: Formatted to (1) Treasury Officer, (2) DDO, (3) Subscriber/Nominee with address, mobile, and dynamic verification QR code.
+- **DSC Verification Stamp**: PKCS#7 hardware USB token signature seal and SHA-256 verification hash.
+
+### B. DLIS Sanction Order (`pdf/dlis_letter.blade.php`)
+- Dedicated Sanction Order for Death-in-service cases citing *Finance Dept. O.M. No. F.12(7)/FIN(G)/75* and Debit Head *2235-60-104*.
+- Accessible via print route `/authority/{id}/print-dlis`.
+
+### C. LTA Authority Order (`pdf/lta_authority_letter.blade.php`)
+- Dedicated Lifetime Arrears Authority Order citing `lta_to_whom` claimant.
+
+---
+
+## 7. GPF Final Payment Workflow States
 
 ```
 [1] DRAFT 
      │ (DEO registers docket & inputs subscriber profile)
      ▼
 [2] CALCULATED 
-     │ (Interest calculated & monthly ledger verified)
+     │ (Interest calculated & multi-year monthly ledger verified)
      ▼
 [3] CHECKED 
      │ (AAO audits ledger, verifies interest & checks missing credits)
@@ -117,45 +169,36 @@ When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSub
 
 ---
 
-## 6. Calculation Engine & Business Rules
+## 8. Key File Sitemap
 
-1. **Rate of Interest**: 7.10% per annum (or applicable historical FY rate) computed on monthly progressive balances.
-2. **Deposit-Linked Insurance Scheme (DLIS)**:
-   - Admissible on `CaseType::DEATH_IN_SERVICE` (`pension_type_id = '2'` or `'7'`).
-   - Max insurance coverage: **₹60,000**.
-   - Requires minimum 3 years continuous service and average balance thresholds.
-3. **Interest Cutoff Rules**:
-   - Superannuation / Resignation: End of event month.
-   - Death in Service: Cutoff resolved per death grace rules.
-   - LTA: Date of LTA / cessation.
-4. **Missing Credits**: Retrieved from `VLCS.GP_MISSING_CREDIT` for uncredited deduction adjustments.
-
----
-
-## 7. Key File Sitemap
-
+- `app/Services/Format/IndianCurrencyFormatter.php` — Converts numeric figures to Indian English words and formatted INR strings.
 - `app/Services/Integration/OracleMasterBridge.php` — Oracle 11g OCI8 & PostgreSQL 18 dual-database bridge.
-- `app/Services/Calculation/GpfInterestCalculator.php` — Progressive interest calculation engine.
+- `app/Services/Calculation/GpfCalculationEngine.php` — Multi-year progressive compounding, cut month suppression, delay interest math, and DLIS logic.
 - `app/Services/Calculation/CutoffRuleResolver.php` — Interest cutoff date resolver.
 - `app/Services/Workflow/GpfWorkflowService.php` — Workflow state transitions and audit logging.
+- `app/Services/DigitalSignature/PkiSignatureVerifier.php` — PKI SHA-256 digital signature verification.
 - `app/Http/Controllers/InwardCaseController.php` — Docket registration & subscriber lookup API (`/inward/lookup`).
-- `app/Http/Controllers/CalculationController.php` — Calculation runs and monthly breakdown sheets.
+- `app/Http/Controllers/CalculationController.php` — Calculation runs, Base FY lookup, and live breakdown sheets.
+- `app/Http/Controllers/NomineeController.php` — Nominee distribution & beneficiary codes.
 - `app/Http/Controllers/ApprovalController.php` — AAO verification and Sr. AO approval.
-- `app/Http/Controllers/AuthorityController.php` — Authority generation, PDF preview, and DSC digital signing.
+- `app/Http/Controllers/AuthorityController.php` — Authority generation, PDF preview, DLIS print, and DSC digital signing.
 - `app/Http/Controllers/DispatchController.php` — HRMS dispatch and postal outward tracking.
-- `resources/js/Pages/` — Inertia React UI components.
+- `resources/views/pdf/authority_letter.blade.php` — Official statutory AG Tripura Authority Letter template.
+- `resources/views/pdf/dlis_letter.blade.php` — Official DLIS Sanction Order template.
+- `resources/views/pdf/lta_authority_letter.blade.php` — Official LTA Authority Order template.
+- `resources/js/Pages/` — Inertia React UI components (`Authority/Show.jsx`, `Calculation/CalculationSheet.jsx`, `Inward/Create.jsx`, etc.).
 
 ---
 
-## 8. Common Commands
+## 9. Common Commands
 
 ```powershell
 # Run backend dev server:
 php artisan serve --host=127.0.0.1 --port=8000
 
 # Build frontend assets:
-npm run build
+npm.cmd run build
 
-# Run automated tests:
-php artisan test
+# Run automated test suite:
+php vendor/phpunit/phpunit/phpunit --testdox
 ```
