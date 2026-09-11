@@ -62,7 +62,7 @@ class UserAuthenticationFeatureTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_registration_page_renders_and_creates_user(): void
+    public function test_registration_without_token_creates_pending_user(): void
     {
         $this->get('/register')->assertOk();
 
@@ -82,7 +82,55 @@ class UserAuthenticationFeatureTest extends TestCase
         $this->assertNotNull($user);
         $this->assertEquals('Shri Sanjit Deb', $user->name);
         $this->assertEquals('checker', $user->role);
+        $this->assertEquals('pending', $user->approval_status);
+        $this->assertFalse($user->is_active);
+
+        // Pending user cannot login
+        $loginRes = $this->post('/login', [
+            'username' => 'sanjit_deb',
+            'password' => 'Password@123',
+        ]);
+        $loginRes->assertSessionHasErrors('username');
+        $this->assertGuest();
+    }
+
+    public function test_registration_with_admin_security_token_auto_approves(): void
+    {
+        $admin = User::where('username', 'dir')->first();
+        $token = \App\Models\AdminSecurityToken::create([
+            'token' => 'ADM-REG-TEST999',
+            'token_type' => 'registration',
+            'role' => 'approver',
+            'created_by' => $admin->id,
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $response = $this->post('/register', [
+            'name' => 'Shri Biplab Roy',
+            'username' => 'biplab_roy',
+            'email' => 'biplab.roy@tripura.gov.in',
+            'role' => 'deo', // token role override
+            'admin_token' => 'ADM-REG-TEST999',
+            'password' => 'Password@123',
+            'password_confirmation' => 'Password@123',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect(route('login'));
+
+        $user = User::where('username', 'biplab_roy')->first();
+        $this->assertNotNull($user);
+        $this->assertEquals('approved', $user->approval_status);
         $this->assertTrue($user->is_active);
+        $this->assertEquals('approver', $user->role); // took role from token
+
+        // Auto-approved user can login immediately
+        $loginRes = $this->post('/login', [
+            'username' => 'biplab_roy',
+            'password' => 'Password@123',
+        ]);
+        $loginRes->assertRedirect(route('dashboard'));
+        $this->assertAuthenticatedAs($user);
     }
 
     public function test_registration_validates_unique_username_and_email(): void

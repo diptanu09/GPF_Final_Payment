@@ -26,6 +26,10 @@ class HandleInertiaRequests extends Middleware
                     'name' => $user->name,
                     'username' => $user->username,
                     'email' => $user->email,
+                    'designation' => $user->designation,
+                    'section' => $user->section,
+                    'phone_number' => $user->phone_number,
+                    'approval_status' => $user->approval_status,
                     'role' => $user->role,
                     'role_label' => $user->roleLabel(),
                     'is_super_admin' => $user->isSuperAdmin(),
@@ -33,6 +37,9 @@ class HandleInertiaRequests extends Middleware
                     'is_checker' => $user->isChecker(),
                     'is_da' => $user->isDealingAssistant(),
                 ] : null,
+                'pending_users_count' => fn () => ($user && $user->isSuperAdmin()) 
+                    ? \App\Models\User::where('approval_status', 'pending')->count() 
+                    : 0,
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

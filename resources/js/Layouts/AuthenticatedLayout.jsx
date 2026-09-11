@@ -15,7 +15,10 @@ import {
     Shield,
     Bell,
     ChevronRight,
-    Clock
+    Clock,
+    UserCheck,
+    UserCircle2,
+    KeyRound
 } from 'lucide-react';
 
 export default function AuthenticatedLayout({ children, title }) {
@@ -51,6 +54,16 @@ export default function AuthenticatedLayout({ children, title }) {
         { label: 'MIS Reports', href: '/reports', icon: BarChart3, active: url.startsWith('/reports') },
     ];
 
+    if (auth?.user?.is_super_admin) {
+        navItems.push({
+            label: 'User Governance',
+            href: '/admin/users',
+            icon: UserCheck,
+            active: url.startsWith('/admin/users'),
+            pendingCount: auth?.pending_users_count || 0,
+        });
+    }
+
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
             {/* Top Navigation Bar */}
@@ -63,8 +76,8 @@ export default function AuthenticatedLayout({ children, title }) {
                     >
                         {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                     </button>
-                    <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">
+                    <Link href="/" className="flex items-center gap-2 group">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
                             GPF
                         </div>
                         <div>
@@ -78,7 +91,7 @@ export default function AuthenticatedLayout({ children, title }) {
                                 {office_name}
                             </p>
                         </div>
-                    </div>
+                    </Link>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -88,15 +101,37 @@ export default function AuthenticatedLayout({ children, title }) {
                         <span className="font-mono">{currentTime}</span>
                     </div>
 
-                    {/* User Profile Tag */}
+                    {/* Pending User Approvals Alert for Admins */}
+                    {auth?.user?.is_super_admin && auth?.pending_users_count > 0 && (
+                        <Link
+                            href="/admin/users?status=pending"
+                            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-medium hover:bg-amber-500/25 transition animate-pulse"
+                            title={`${auth.pending_users_count} pending registration approval(s)`}
+                        >
+                            <Bell className="w-3.5 h-3.5 text-amber-400" />
+                            <span>{auth.pending_users_count} Pending Approval{auth.pending_users_count > 1 ? 's' : ''}</span>
+                        </Link>
+                    )}
+
+                    {/* User Profile Link */}
                     <div className="flex items-center gap-3 pl-3 border-l border-slate-800">
-                        <div className="text-right hidden sm:block">
-                            <div className="text-xs font-semibold text-slate-200">{auth.user?.name}</div>
-                            <div className="text-[10px] text-indigo-400 font-medium">{auth.user?.role_label}</div>
-                        </div>
-                        <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-indigo-300">
-                            {auth.user?.name?.charAt(0) || 'U'}
-                        </div>
+                        <Link
+                            href="/profile"
+                            className="flex items-center gap-2 text-right group hover:opacity-90 transition"
+                            title="View / Edit Profile"
+                        >
+                            <div className="hidden sm:block text-right">
+                                <div className="text-xs font-semibold text-slate-200 group-hover:text-indigo-300 transition">
+                                    {auth.user?.name}
+                                </div>
+                                <div className="text-[10px] text-indigo-400 font-medium">
+                                    {auth.user?.role_label}
+                                </div>
+                            </div>
+                            <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-indigo-300 group-hover:border-indigo-500 group-hover:bg-indigo-950/40 transition">
+                                {auth.user?.name?.charAt(0) || 'U'}
+                            </div>
+                        </Link>
                         <button
                             onClick={() => router.post('/logout')}
                             className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition"
@@ -128,12 +163,32 @@ export default function AuthenticatedLayout({ children, title }) {
                                     {sidebarOpen && (
                                         <span className="truncate flex-1">{item.label}</span>
                                     )}
-                                    {sidebarOpen && item.badge && (
+                                    {sidebarOpen && item.pendingCount > 0 && (
+                                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500 text-slate-950">
+                                            {item.pendingCount}
+                                        </span>
+                                    )}
+                                    {sidebarOpen && !item.pendingCount && item.badge && (
                                         <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
                                     )}
                                 </Link>
                             );
                         })}
+
+                        {/* Profile Direct Nav */}
+                        <Link
+                            href="/profile"
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
+                                url.startsWith('/profile')
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
+                                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                            }`}
+                        >
+                            <UserCircle2 className={`w-5 h-5 flex-shrink-0 ${url.startsWith('/profile') ? 'text-white' : 'text-slate-400 group-hover:text-indigo-400'}`} />
+                            {sidebarOpen && (
+                                <span className="truncate flex-1">My Profile & Security</span>
+                            )}
+                        </Link>
                     </nav>
 
                     {/* System Institutional Badge */}

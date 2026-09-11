@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuthorityController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DispatchController;
 use App\Http\Controllers\InwardCaseController;
 use App\Http\Controllers\NomineeController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +35,28 @@ Route::post('/forgot-username', [AuthController::class, 'recoverUsername'])->nam
 // Authenticated Application Routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+    // User Profile & Personal Settings
+    Route::prefix('profile')->name('profile.')->group(function () {
+        Route::get('/', [ProfileController::class, 'show'])->name('show');
+        Route::put('/', [ProfileController::class, 'update'])->name('update');
+        Route::put('/password', [ProfileController::class, 'updatePassword'])->name('password');
+    });
+
+    // Admin Governance & User Control (Admin / Super-Admin only)
+    Route::prefix('admin')->name('admin.')->group(function () {
+        Route::prefix('users')->name('users.')->group(function () {
+            Route::get('/', [AdminUserController::class, 'index'])->name('index');
+            Route::post('/{id}/approve', [AdminUserController::class, 'approve'])->name('approve');
+            Route::post('/{id}/reject', [AdminUserController::class, 'reject'])->name('reject');
+            Route::put('/{id}', [AdminUserController::class, 'update'])->name('update');
+            Route::post('/{id}/reset-password', [AdminUserController::class, 'resetUserPassword'])->name('reset-password');
+        });
+        Route::prefix('tokens')->name('tokens.')->group(function () {
+            Route::post('/generate', [AdminUserController::class, 'generateToken'])->name('generate');
+            Route::delete('/{id}', [AdminUserController::class, 'revokeToken'])->name('revoke');
+        });
+    });
 
     // Inward Management
     Route::prefix('inward')->name('inward.')->group(function () {

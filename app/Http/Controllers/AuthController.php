@@ -62,7 +62,25 @@ class AuthController extends Controller
         }
 
         if ($user) {
-            // 4. Verify account active status
+            // 4. Verify approval status and active status
+            if ($user->approval_status === 'pending') {
+                RateLimiter::hit($throttleKey, 60);
+                Log::warning("GPF Auth: Pending approval account login attempt: '{$inputUser}' from IP {$request->ip()}.");
+
+                return back()->withErrors([
+                    'username' => 'Your institutional account is pending Administrator approval. Please contact the Directorate / Admin.',
+                ])->onlyInput('username');
+            }
+
+            if ($user->approval_status === 'rejected') {
+                RateLimiter::hit($throttleKey, 60);
+                Log::warning("GPF Auth: Rejected account login attempt: '{$inputUser}' from IP {$request->ip()}.");
+
+                return back()->withErrors([
+                    'username' => 'Your registration was rejected by the Administrator. Please contact the Directorate for clarification.',
+                ])->onlyInput('username');
+            }
+
             if (!$user->is_active) {
                 RateLimiter::hit($throttleKey, 60);
                 Log::warning("GPF Auth: Deactivated account login attempt: '{$inputUser}' from IP {$request->ip()}.");
@@ -141,21 +159,73 @@ class AuthController extends Controller
             'username' => ['required', 'string', 'max:50', 'alpha_dash', 'unique:users,username'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'role' => ['required', 'string', 'in:admin,approver,checker,deo,dispatch,dealing_assistant'],
+            'designation' => ['nullable', 'string', 'max:150'],
+            'section' => ['nullable', 'string', 'max:100'],
+            'phone_number' => ['nullable', 'string', 'max:20'],
+            'admin_token' => ['nullable', 'string', 'max:50'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
+
+        $adminTokenInput = !empty($validated['admin_token']) ? trim($validated['admin_token']) : null;
+        $isInstantApproved = false;
+        $matchedToken = null;
+
+        if ($adminTokenInput) {
+            $matchedToken = \App\Models\AdminSecurityToken::where('token', $adminTokenInput)
+                ->where('is_used', false)
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })
+                ->whereIn('token_type', ['registration', 'all'])
+                ->first();
+
+            if (!$matchedToken) {
+                return back()->withErrors([
+                    'admin_token' => 'Invalid or expired Admin Security Token. Leave blank to submit for Admin approval.',
+                ])->onlyInput('name', 'username', 'email', 'role', 'admin_token');
+            }
+
+            if ($matchedToken->issued_for_email && strtolower(trim($matchedToken->issued_for_email)) !== strtolower(trim($validated['email']))) {
+                return back()->withErrors([
+                    'admin_token' => "This security token is strictly reserved for email: {$matchedToken->issued_for_email}",
+                ])->onlyInput('name', 'username', 'email', 'role', 'admin_token');
+            }
+
+            $isInstantApproved = true;
+        }
+
+        $userRole = ($matchedToken && $matchedToken->role) ? $matchedToken->role : $validated['role'];
 
         $user = User::create([
             'name' => trim($validated['name']),
             'username' => strtolower(trim($validated['username'])),
             'email' => strtolower(trim($validated['email'])),
-            'role' => $validated['role'],
+            'role' => $userRole,
+            'designation' => $validated['designation'] ?? null,
+            'section' => $validated['section'] ?? null,
+            'phone_number' => $validated['phone_number'] ?? null,
             'password' => Hash::make($validated['password']),
-            'is_active' => true,
+            'approval_status' => $isInstantApproved ? 'approved' : 'pending',
+            'is_active' => $isInstantApproved,
+            'approved_at' => $isInstantApproved ? now() : null,
+            'approved_by' => $matchedToken?->created_by,
         ]);
 
-        Log::info("GPF Auth: New institutional user registered: '{$user->username}' ({$user->role}) by IP {$request->ip()}.");
+        if ($matchedToken) {
+            $matchedToken->update([
+                'is_used' => true,
+                'used_by' => $user->id,
+                'used_at' => now(),
+            ]);
+        }
 
-        return redirect()->route('login')->with('success', "Account registered successfully for {$user->name} ({$user->username}). You may now log in.");
+        Log::info("GPF Auth: New user registered: '{$user->username}' (Status: {$user->approval_status}) from IP {$request->ip()}.");
+
+        if ($isInstantApproved) {
+            return redirect()->route('login')->with('success', "Account for {$user->name} ({$user->username}) verified and activated via Admin Security Token! You may now sign in.");
+        }
+
+        return redirect()->route('login')->with('info', "Registration submitted successfully! Your account is queued for Administrator verification. You will be able to log in once approved by Admin.");
     }
 
     public function showForgotPassword(): Response|RedirectResponse
@@ -170,11 +240,73 @@ class AuthController extends Controller
     public function sendPasswordResetToken(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'identifier' => ['required', 'string'],
+            'identifier' => ['nullable', 'string'],
+            'admin_token' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $identifier = strtolower(trim($validated['identifier']));
+        $identifier = !empty($validated['identifier']) ? strtolower(trim($validated['identifier'])) : null;
+        $adminTokenInput = !empty($validated['admin_token']) ? trim($validated['admin_token']) : null;
 
+        if (!$identifier && !$adminTokenInput) {
+            return back()->withErrors([
+                'identifier' => 'Please provide your Username/Email or an Admin Security Token.',
+            ]);
+        }
+
+        $user = null;
+
+        // If admin token provided, validate
+        if ($adminTokenInput) {
+            $matchedToken = \App\Models\AdminSecurityToken::where('token', $adminTokenInput)
+                ->where('is_used', false)
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                })
+                ->whereIn('token_type', ['password_reset', 'all'])
+                ->first();
+
+            if (!$matchedToken) {
+                return back()->withErrors([
+                    'admin_token' => 'Invalid or expired Admin Security Reset Token.',
+                ])->onlyInput('identifier', 'admin_token');
+            }
+
+            if ($matchedToken->issued_for_email) {
+                $user = User::whereRaw('LOWER(email) = ?', [strtolower(trim($matchedToken->issued_for_email))])->first();
+            } elseif ($identifier) {
+                $user = User::whereRaw('LOWER(email) = ?', [$identifier])
+                    ->orWhereRaw('LOWER(username) = ?', [$identifier])
+                    ->first();
+            }
+
+            if (!$user) {
+                return back()->withErrors([
+                    'admin_token' => 'No active user account found associated with this token.',
+                ]);
+            }
+
+            $token = Str::random(60);
+            DB::table('password_reset_tokens')->updateOrInsert(
+                ['email' => $user->email],
+                [
+                    'token' => Hash::make($token),
+                    'created_at' => now(),
+                ]
+            );
+
+            $matchedToken->update([
+                'is_used' => true,
+                'used_by' => $user->id,
+                'used_at' => now(),
+            ]);
+
+            return redirect()->route('password.reset', [
+                'token' => $token,
+                'email' => $user->email,
+            ])->with('success', "Admin Security Token validated! Please set your new password for {$user->username}.");
+        }
+
+        // Standard flow
         $user = User::whereRaw('LOWER(email) = ?', [$identifier])
             ->orWhereRaw('LOWER(username) = ?', [$identifier])
             ->first();
@@ -185,7 +317,7 @@ class AuthController extends Controller
             ])->onlyInput('identifier');
         }
 
-        // Generate a secure random token
+        // Generate standard token
         $token = Str::random(60);
 
         DB::table('password_reset_tokens')->updateOrInsert(
@@ -213,6 +345,7 @@ class AuthController extends Controller
         return Inertia::render('Auth/ResetPassword', [
             'email' => $request->query('email', ''),
             'token' => $request->query('token', ''),
+            'admin_token' => $request->query('admin_token', ''),
         ]);
     }
 
@@ -221,6 +354,7 @@ class AuthController extends Controller
         $validated = $request->validate([
             'email' => ['required', 'email'],
             'token' => ['required', 'string'],
+            'admin_token' => ['nullable', 'string'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
@@ -249,6 +383,14 @@ class AuthController extends Controller
 
         $user->password = Hash::make($validated['password']);
         $user->save();
+
+        if (!empty($validated['admin_token'])) {
+            \App\Models\AdminSecurityToken::where('token', $validated['admin_token'])->update([
+                'is_used' => true,
+                'used_by' => $user->id,
+                'used_at' => now(),
+            ]);
+        }
 
         DB::table('password_reset_tokens')->where('email', $validated['email'])->delete();
 

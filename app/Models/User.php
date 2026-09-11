@@ -17,6 +17,13 @@ class User extends Authenticatable
         'password',
         'role',
         'is_active',
+        'approval_status',
+        'approved_by',
+        'approved_at',
+        'designation',
+        'section',
+        'phone_number',
+        'admin_notes',
     ];
 
     protected $hidden = [
@@ -28,9 +35,25 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'approved_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->approval_status === 'approved';
+    }
+
+    public function isPending(): bool
+    {
+        return $this->approval_status === 'pending';
+    }
+
+    public function approverUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function isSuperAdmin(): bool

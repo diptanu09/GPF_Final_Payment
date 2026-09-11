@@ -169,7 +169,33 @@ When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSub
 
 ---
 
-## 8. Key File Sitemap
+## 8. Directorate Security Governance & User Access Control
+
+### A. Two-Tier Officer Registration & Approval Pipeline
+1. **Public Registration (`/register`)**:
+   - Any staff member can register their institutional account by supplying their full name, official username, email address, requested role, designation, section, and mobile number.
+   - **Default Flow (No Admin Token)**: The account is registered with `approval_status = 'pending'` and `is_active = false`. Login attempts are blocked until an Administrator reviews and approves the account.
+   - **Fast-Track Flow (With Admin Security Token)**: If the user provides a valid 1-time `admin_token` (e.g. `ADM-REG-XXXXXX`), the system automatically sets `approval_status = 'approved'`, `is_active = true`, sets the assigned role, and immediately grants access.
+
+### B. Admin User Governance Console (`/admin/users`)
+- **Restricted to Directorate Admins** (`dir`, `jdg`).
+- **Live Pending Badge**: Displays glowing alert notification for unapproved staff in the navigation bar.
+- **Queue Actions**: 1-click **Approve & Activate**, **Reject** with audit notes, or modify requested role and branch before approval.
+- **Account Governance**: Search and filter all registered officers, edit designations/sections/roles/status, and execute direct administrative password resets.
+
+### C. Admin Security Token Generator (`/admin/tokens/generate`)
+- Generates cryptographically secure, 1-time authorization tokens (`ADM-REG-...`, `ADM-RST-...`, `ADM-SEC-...`).
+- Supports expiry durations (1 to 30 days), designated role locking, and optional email locking.
+- Tokens can be copied with 1-click or revoked immediately.
+
+### D. Officer Profile & Security (`/profile`)
+- Officers can view their official profile badge, role capabilities, database state, and update their email, designation, section, and phone number.
+- Secure password change module (`/profile/password`) requiring current password verification.
+- Real-time audit performance metrics (dockets created, audits checked, settlements approved, DSC signatures).
+
+---
+
+## 9. Key File Sitemap
 
 - `app/Services/Format/IndianCurrencyFormatter.php` — Converts numeric figures to Indian English words and formatted INR strings.
 - `app/Services/Integration/OracleMasterBridge.php` — Oracle 11g OCI8 & PostgreSQL 18 dual-database bridge.
@@ -177,6 +203,9 @@ When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSub
 - `app/Services/Calculation/CutoffRuleResolver.php` — Interest cutoff date resolver.
 - `app/Services/Workflow/GpfWorkflowService.php` — Workflow state transitions and audit logging.
 - `app/Services/DigitalSignature/PkiSignatureVerifier.php` — PKI SHA-256 digital signature verification.
+- `app/Http/Controllers/AuthController.php` — Login, registration with Admin Security Tokens, password reset, and username recovery.
+- `app/Http/Controllers/AdminUserController.php` — Directorate user governance, approval queue, role editing, password resets, and token issuance.
+- `app/Http/Controllers/ProfileController.php` — Officer profile management, password updates, and audit metric counters.
 - `app/Http/Controllers/InwardCaseController.php` — Docket registration & subscriber lookup API (`/inward/lookup`).
 - `app/Http/Controllers/CalculationController.php` — Calculation runs, Base FY lookup, and live breakdown sheets.
 - `app/Http/Controllers/NomineeController.php` — Nominee distribution & beneficiary codes.
@@ -186,11 +215,13 @@ When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSub
 - `resources/views/pdf/authority_letter.blade.php` — Official statutory AG Tripura Authority Letter template.
 - `resources/views/pdf/dlis_letter.blade.php` — Official DLIS Sanction Order template.
 - `resources/views/pdf/lta_authority_letter.blade.php` — Official LTA Authority Order template.
+- `resources/js/Pages/Admin/Users/Index.jsx` — Admin User Governance & Security Token Console.
+- `resources/js/Pages/Profile/Show.jsx` — Officer Profile, Security & Activity Dashboard.
 - `resources/js/Pages/` — Inertia React UI components (`Authority/Show.jsx`, `Calculation/CalculationSheet.jsx`, `Inward/Create.jsx`, etc.).
 
 ---
 
-## 9. Common Commands
+## 10. Common Commands
 
 ```powershell
 # Run backend dev server:
