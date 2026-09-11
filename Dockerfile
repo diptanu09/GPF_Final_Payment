@@ -61,19 +61,19 @@ RUN mkdir -p /opt/oracle && cd /opt/oracle \
 # Configure & Install PHP Extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
-        pdo_pgsql \
-        pgsql \
-        bcmath \
-        gd \
-        zip \
-        intl \
-        opcache \
-        pcntl
+    pdo_pgsql \
+    pgsql \
+    bcmath \
+    gd \
+    zip \
+    intl \
+    opcache \
+    pcntl
 
 # Install & Configure OCI8 if instantclient library exists
 RUN if [ -d "/usr/lib/oracle/current" ]; then \
-        echo 'instantclient,/usr/lib/oracle/current' | pecl install oci8-3.4.0 \
-        && docker-php-ext-enable oci8; \
+    echo 'instantclient,/usr/lib/oracle/current' | pecl install oci8-3.4.0 \
+    && docker-php-ext-enable oci8; \
     fi
 
 # Install Composer
@@ -88,20 +88,27 @@ COPY --from=frontend-builder /app/public/build /var/www/html/public/build
 # Install PHP production dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
-# Copy Configurations & SSL Certificates
+# Copy Configurations
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/custom-php.ini
 COPY docker/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY docker/ssl /etc/nginx/ssl
+
+# Generate 10-year SAN SSL Certificate inside container
+RUN mkdir -p /etc/nginx/ssl \
+    && openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/server.key \
+    -out /etc/nginx/ssl/server.crt \
+    -subj "/C=IN/ST=Tripura/L=Agartala/O=Office of the Accountant General (A&E) Tripura/OU=Fund Section/CN=gpffp.local" \
+    -addext "subjectAltName=DNS:gpffp.local,DNS:gpf-final-payment.local,DNS:gpf_final_payment.local,DNS:gpf.tripura.local,DNS:localhost,IP:10.47.240.169,IP:127.0.0.1" \
+    && chmod 600 /etc/nginx/ssl/server.key \
+    && chmod 644 /etc/nginx/ssl/server.crt
 
 # Set permissions and fix line endings
 RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh \
     && chmod +x /usr/local/bin/entrypoint.sh \
-    && chmod 600 /etc/nginx/ssl/server.key \
-    && chmod 644 /etc/nginx/ssl/server.crt \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
