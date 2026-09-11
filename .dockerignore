@@ -4,9 +4,15 @@ node_modules
 npm-debug.log
 yarn-error.log
 .env
-.env.backup
+.env.*
 .phpunit.result.cache
 tests
+legacy
+*.md
+phpunit.xml
+.editorconfig
+.npmrc
+docker/*.log
 storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*
@@ -15,4 +21,4 @@ storage/framework/views/*
 !storage/framework/cache/.gitignore
 !storage/framework/sessions/.gitignore
 !storage/framework/views/.gitignore
-docker/*.log
+

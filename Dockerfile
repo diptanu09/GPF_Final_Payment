@@ -96,8 +96,9 @@ COPY docker/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Set permissions
-RUN chmod +x /usr/local/bin/entrypoint.sh \
+# Set permissions and fix line endings
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh \
+    && chmod +x /usr/local/bin/entrypoint.sh \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
