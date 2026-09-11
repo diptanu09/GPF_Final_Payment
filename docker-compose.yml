@@ -1,0 +1,28 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gpf_final_payment_app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-80}:80"
+    env_file:
+      - .env
+    volumes:
+      - app_storage:/var/www/html/storage
+      - app_logs:/var/www/html/storage/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  app_storage:
+    driver: local
+  app_logs:
+    driver: local
