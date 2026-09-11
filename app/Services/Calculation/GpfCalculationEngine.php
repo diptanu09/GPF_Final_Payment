@@ -143,7 +143,7 @@ class GpfCalculationEngine
             $isDelayed = $paySlipDate->greaterThan($effectiveCutoffDate);
 
             // Determine rate of interest for this month
-            $rate = (string) ($item['rate_of_interest'] ?? InterestRateSlab::getRateForDate($paySlipDate->toDateString()) ?? 7.1000);
+            $rate = (string) ($item['rate_of_interest'] ?? InterestRateSlab::getRateForDate($paySlipDate->toDateString()) ?? config('gpf.interest.default_rate', 7.1000));
 
             // If transitioning to a new Financial Year, capitalize previous year's interest & net transactions
             if (!$isDelayed && $currentFinYear !== null && $finYear !== $currentFinYear) {

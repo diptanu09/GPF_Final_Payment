@@ -14,6 +14,29 @@ class UserAuthenticationFeatureTest extends TestCase
     {
         parent::setUp();
         $this->seed();
+
+        $accounts = [
+            ['username' => 'dir', 'password' => 'dir', 'role' => 'admin', 'name' => 'Director', 'email' => 'dir@tripura.gov.in'],
+            ['username' => 'jdg', 'password' => 'Juhi1234@', 'role' => 'admin', 'name' => 'JDG', 'email' => 'jdg@tripura.gov.in'],
+            ['username' => 'rkdb', 'password' => 'rbsr123', 'role' => 'approver', 'name' => 'R.K. Debbarma', 'email' => 'rkdb@tripura.gov.in'],
+            ['username' => 'anjana', 'password' => 'ad123', 'role' => 'checker', 'name' => 'Anjana', 'email' => 'anjana@tripura.gov.in'],
+            ['username' => 'deeksha', 'password' => 'deeksha@123', 'role' => 'deo', 'name' => 'Deeksha', 'email' => 'deeksha@tripura.gov.in'],
+            ['username' => 'kalipada', 'password' => 'Lp123', 'role' => 'deo', 'name' => 'Kalipada', 'email' => 'kalipada@tripura.gov.in'],
+        ];
+
+        foreach ($accounts as $acc) {
+            User::firstOrCreate(
+                ['username' => $acc['username']],
+                [
+                    'name' => $acc['name'],
+                    'email' => $acc['email'],
+                    'password' => \Illuminate\Support\Facades\Hash::make($acc['password']),
+                    'role' => $acc['role'],
+                    'approval_status' => 'approved',
+                    'is_active' => true,
+                ]
+            );
+        }
     }
 
     public function test_login_page_renders_with_real_institutional_users(): void

@@ -19,6 +19,51 @@ class GpfControllersFeatureTest extends TestCase
     {
         parent::setUp();
         $this->seed();
+
+        User::firstOrCreate(['username' => 'test_admin'], [
+            'name' => 'Test Admin',
+            'email' => 'test_admin@tripura.gov.in',
+            'password' => 'secret123',
+            'role' => 'admin',
+            'approval_status' => 'approved',
+            'is_active' => true,
+        ]);
+
+        User::firstOrCreate(['username' => 'test_deo'], [
+            'name' => 'Test DEO',
+            'email' => 'test_deo@tripura.gov.in',
+            'password' => 'secret123',
+            'role' => 'deo',
+            'approval_status' => 'approved',
+            'is_active' => true,
+        ]);
+
+        User::firstOrCreate(['username' => 'test_checker'], [
+            'name' => 'Test Checker',
+            'email' => 'test_checker@tripura.gov.in',
+            'password' => 'secret123',
+            'role' => 'checker',
+            'approval_status' => 'approved',
+            'is_active' => true,
+        ]);
+
+        User::firstOrCreate(['username' => 'test_approver'], [
+            'name' => 'Test Approver',
+            'email' => 'test_approver@tripura.gov.in',
+            'password' => 'secret123',
+            'role' => 'approver',
+            'approval_status' => 'approved',
+            'is_active' => true,
+        ]);
+
+        User::firstOrCreate(['username' => 'test_dispatch'], [
+            'name' => 'Test Dispatch',
+            'email' => 'test_dispatch@tripura.gov.in',
+            'password' => 'secret123',
+            'role' => 'dispatch',
+            'approval_status' => 'approved',
+            'is_active' => true,
+        ]);
     }
 
     public function test_approval_controller_check_and_approve_endpoints(): void

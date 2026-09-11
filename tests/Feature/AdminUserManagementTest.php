@@ -16,6 +16,66 @@ class AdminUserManagementTest extends TestCase
     {
         parent::setUp();
         $this->seed();
+
+        User::firstOrCreate(
+            ['username' => 'dir'],
+            [
+                'name' => 'Administrator / Director',
+                'email' => 'dir@tripura.gov.in',
+                'password' => Hash::make('dir'),
+                'role' => 'admin',
+                'approval_status' => 'approved',
+                'is_active' => true,
+            ]
+        );
+
+        User::firstOrCreate(
+            ['username' => 'rkdb'],
+            [
+                'name' => 'R. K. Debbarma',
+                'email' => 'rkdb@tripura.gov.in',
+                'password' => Hash::make('rbsr123'),
+                'role' => 'approver',
+                'approval_status' => 'approved',
+                'is_active' => true,
+            ]
+        );
+
+        User::firstOrCreate(
+            ['username' => 'deeksha'],
+            [
+                'name' => 'Deeksha',
+                'email' => 'deeksha@tripura.gov.in',
+                'password' => Hash::make('secret123'),
+                'role' => 'deo',
+                'approval_status' => 'approved',
+                'is_active' => true,
+            ]
+        );
+
+        User::firstOrCreate(
+            ['username' => 'kalipada'],
+            [
+                'name' => 'Kalipada',
+                'email' => 'kalipada@tripura.gov.in',
+                'password' => Hash::make('secret123'),
+                'role' => 'deo',
+                'approval_status' => 'approved',
+                'is_active' => true,
+            ]
+        );
+
+        User::firstOrCreate(
+            ['username' => 'anjana'],
+            [
+                'name' => 'Anjana',
+                'email' => 'anjana@tripura.gov.in',
+                'password' => Hash::make('secret123'),
+                'role' => 'checker',
+                'approval_status' => 'approved',
+                'is_active' => true,
+            ]
+        );
     }
 
     public function test_non_admin_cannot_access_admin_user_console(): void

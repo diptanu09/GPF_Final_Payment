@@ -15,6 +15,15 @@ class InwardCaseLookupFeatureTest extends TestCase
     {
         parent::setUp();
         $this->seed();
+
+        User::firstOrCreate(['username' => 'test_deo'], [
+            'name' => 'Test DEO',
+            'email' => 'test_deo@tripura.gov.in',
+            'password' => 'secret123',
+            'role' => 'deo',
+            'approval_status' => 'approved',
+            'is_active' => true,
+        ]);
     }
 
     public function test_inward_create_page_renders_with_master_dropdowns(): void

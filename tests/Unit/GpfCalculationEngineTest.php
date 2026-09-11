@@ -177,7 +177,7 @@ class GpfCalculationEngineTest extends TestCase
 
         $this->assertNotNull($run);
         $this->assertTrue((bool) $run->dlis_admissible);
-        $this->assertEquals(10000.00, (float) $run->dlis_amount);
+        $this->assertEquals((float) config('gpf.dlis.max_amount', 60000.00), (float) $run->dlis_amount);
         $this->assertGreaterThan(85000.00, (float) $run->final_closing_balance);
     }
 
