@@ -12,13 +12,14 @@ This document contains the complete architectural specification, database mappin
   - **Engine**: PostgreSQL 18
   - **Host**: `10.47.240.169:5432`
   - **Database**: `gpf_final_payment`
+  - **Schema**: `gpffp` (Search Path: `gpffp`)
   - **User**: `postgres` | **Password**: `root@123`
-  - **Contents**: Stores users, inward cases, calculation runs, monthly breakdowns, nominees, authorities, digital signature audits, workflow history, and PostgreSQL replica tables (`gp_accounts`, `gp_applications`, `gp_yearly_balances`, `state_ddo`, `state_treasury`, `mm_gpf_series`, `gp_missing_credit`).
-- **Legacy Source Database (Master Data & Historical Records)**:
+  - **Contents**: Stores users, inward cases, calculation runs, monthly breakdowns, nominees, authorities, digital signature audits, workflow history, and PostgreSQL replica tables (`vlcs_gp_accounts`, `vlcs_gp_missing_credit`, `vlcs_mm_employee`, `vlcs_mm_financial_year`, `vlcs_mm_gpf_series`, `vlcs_state_ddo`, `vlcs_state_treasury`).
+- **Legacy Source Database (Master Data)**:
   - **Engine**: Oracle 11g Enterprise
   - **Host**: `192.168.100.247:1521` (SID: `db11g`)
   - **User / Password**: `gpffp` / `gpffp`
-  - **Schemas Used**: `gpffp` and `VLCS`
+  - **Schemas Used**: `VLCS` (Master Demographic Tables only)
 
 ---
 

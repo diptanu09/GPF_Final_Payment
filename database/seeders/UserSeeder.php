@@ -47,51 +47,7 @@ class UserSeeder extends Seeder
             ];
         }
 
-        // 2. Attempt dynamic import from Oracle gpffp.USER_ACCOUNTS if online
-        try {
-            /** @var OracleMasterBridge $bridge */
-            $bridge = app(OracleMasterBridge::class);
-            $conn = $bridge->getConnection();
-
-            if ($conn) {
-                $stmt = oci_parse($conn, 'SELECT FULL_NAME, USERNAME, PASSWORD, USER_ROLE, USER_STATUS FROM gpffp.USER_ACCOUNTS ORDER BY USER_ID ASC');
-                if (@oci_execute($stmt)) {
-                    while ($row = oci_fetch_assoc($stmt)) {
-                        $username = strtolower(trim($row['USERNAME'] ?? ''));
-                        if (empty($username)) continue;
-
-                        $role = match (trim((string) ($row['USER_ROLE'] ?? ''))) {
-                            '1', 'admin', 'director' => 'admin',
-                            '2', 'approver', 'srao', 'ao' => 'approver',
-                            '3', 'checker', 'aao' => 'checker',
-                            '5', 'dispatch', 'outward' => 'dispatch',
-                            default => 'deo',
-                        };
-
-                        $isActive = strtoupper(trim((string) ($row['USER_STATUS'] ?? 'Y'))) === 'Y';
-                        $existing = $usersMap[$username] ?? [];
-
-                        $usersMap[$username] = [
-                            'name' => !empty($row['FULL_NAME']) ? trim($row['FULL_NAME']) : ($existing['name'] ?? ucfirst($username)),
-                            'username' => $username,
-                            'email' => $existing['email'] ?? ($username . '@tripura.gov.in'),
-                            'password' => !empty($row['PASSWORD']) ? trim($row['PASSWORD']) : ($existing['password'] ?? 'secret123'),
-                            'role' => $role,
-                            'designation' => $existing['designation'] ?? null,
-                            'section' => $existing['section'] ?? null,
-                            'phone_number' => $existing['phone_number'] ?? null,
-                            'approval_status' => $isActive ? 'approved' : 'pending',
-                            'is_active' => $isActive,
-                        ];
-                    }
-                    oci_free_statement($stmt);
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::info("UserSeeder: Oracle master accounts lookup skipped (" . $e->getMessage() . "). Using config defaults.");
-        }
-
-        // 2. Insert all users sequentially into the database
+        // 2. Insert bootstrap admin into the database
         foreach ($usersMap as $userData) {
             $password = $userData['password'] ?? 'secret123';
             // Hash password if not already bcrypt-hashed
