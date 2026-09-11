@@ -88,22 +88,25 @@ COPY --from=frontend-builder /app/public/build /var/www/html/public/build
 # Install PHP production dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
-# Copy Configurations
+# Copy Configurations & SSL Certificates
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/custom-php.ini
 COPY docker/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY docker/ssl /etc/nginx/ssl
 
 # Set permissions and fix line endings
 RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh \
     && chmod +x /usr/local/bin/entrypoint.sh \
+    && chmod 600 /etc/nginx/ssl/server.key \
+    && chmod 644 /etc/nginx/ssl/server.crt \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Expose HTTP port
-EXPOSE 80
+# Expose HTTP & HTTPS ports
+EXPOSE 80 443
 
 # Define Entrypoint and default command
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
