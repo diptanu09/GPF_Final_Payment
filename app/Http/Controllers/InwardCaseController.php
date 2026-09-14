@@ -87,6 +87,22 @@ class InwardCaseController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // Sanitize optional empty strings to null / default values
+        $request->merge([
+            'last_fund_deduction' => $request->last_fund_deduction ?: null,
+            'diary_date' => $request->diary_date ?: now()->toDateString(),
+            'debit_during_year' => $request->debit_during_year ?: 0,
+            'name_title' => $request->name_title ?: 'Shri',
+            'designation_title' => $request->designation_title ?: 'Mr',
+            'designation' => $request->designation ?: 'Government Employee',
+            'personal_address' => $request->personal_address ?: 'Tripura',
+            'mobile_no' => $request->mobile_no ?: null,
+            'employee_code' => $request->employee_code ?: null,
+            'beneficiary_code' => $request->beneficiary_code ?: null,
+            'spouse_name' => $request->spouse_name ?: null,
+            'spouse_relation' => $request->spouse_relation ?: 'Spouse',
+        ]);
+
         $validated = $request->validate([
             'series_code' => ['required', 'string'],
             'series_name' => ['nullable', 'string'],
@@ -111,6 +127,11 @@ class InwardCaseController extends Controller
             'beneficiary_code' => ['nullable', 'string'],
             'spouse_name' => ['nullable', 'string'],
             'spouse_relation' => ['nullable', 'string'],
+        ], [
+            'event_date.required' => 'Please enter the Retirement or Event Date.',
+            'ddo_code.required' => 'Please select the DDO Code.',
+            'treasury_code.required' => 'Please select the Treasury.',
+            'subscriber_name.required' => 'Subscriber Name is required.',
         ]);
 
         $year = date('Y');

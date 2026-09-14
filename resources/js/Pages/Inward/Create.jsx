@@ -158,6 +158,20 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                     </div>
                 </div>
 
+                {Object.keys(errors).length > 0 && (
+                    <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 animate-fadeIn space-y-1">
+                        <div className="flex items-center gap-2 font-bold text-rose-400 text-xs">
+                            <ShieldAlert className="w-4 h-4" />
+                            <span>Please resolve the following before registering the docket:</span>
+                        </div>
+                        <ul className="list-disc list-inside text-xs space-y-0.5 text-rose-200/90 pl-1">
+                            {Object.entries(errors).map(([field, msg]) => (
+                                <li key={field}><strong>{field.replace(/_/g, ' ').toUpperCase()}:</strong> {msg}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
                 {closureWarning && (
                     <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-amber-300 animate-fadeIn">
                         <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-400" />
@@ -305,6 +319,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                     className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 />
+                                {errors.designation && <p className="text-rose-400 text-[10px] mt-1">{errors.designation}</p>}
                             </div>
 
                             <div>
@@ -320,6 +335,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                         <option key={t.id} value={t.id}>{t.name}</option>
                                     ))}
                                 </select>
+                                {errors.case_type && <p className="text-rose-400 text-[10px] mt-1">{errors.case_type}</p>}
                             </div>
 
                             <div>
@@ -333,6 +349,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                     className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 />
+                                {errors.event_date && <p className="text-rose-400 text-[10px] mt-1 font-semibold">{errors.event_date}</p>}
                             </div>
 
                             <div>
@@ -363,6 +380,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                         </>
                                     )}
                                 </select>
+                                {errors.pension_type_id && <p className="text-rose-400 text-[10px] mt-1">{errors.pension_type_id}</p>}
                             </div>
 
                             {(data.case_type === 'FAM' || data.pension_type_id === '2') && (
@@ -449,6 +467,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                     className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 />
+                                {errors.personal_address && <p className="text-rose-400 text-[10px] mt-1">{errors.personal_address}</p>}
                             </div>
                         </div>
                     </div>
@@ -478,6 +497,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                         <option key={d.id} value={d.id}>{d.id} - {d.name}</option>
                                     ))}
                                 </select>
+                                {errors.ddo_code && <p className="text-rose-400 text-[10px] mt-1">{errors.ddo_code}</p>}
                             </div>
 
                             <div>
@@ -495,6 +515,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                         <option key={t.id} value={t.id}>{t.id} - {t.name}</option>
                                     ))}
                                 </select>
+                                {errors.treasury_code && <p className="text-rose-400 text-[10px] mt-1">{errors.treasury_code}</p>}
                             </div>
                         </div>
                     </div>
