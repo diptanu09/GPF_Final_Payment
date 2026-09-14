@@ -472,14 +472,8 @@ class OracleMasterBridge
             $acc = null;
             if (\Illuminate\Support\Facades\Schema::hasTable('vlcs_gp_accounts')) {
                 $acc = \Illuminate\Support\Facades\DB::table('vlcs_gp_accounts')
-                    ->where(function ($q) use ($cleanSeries, $cleanSeriesInt) {
-                        $q->where('series_id', $cleanSeriesInt)
-                          ->orWhere('series_id', $cleanSeries);
-                    })
-                    ->where(function ($q) use ($cleanAccount, $cleanAccountInt) {
-                        $q->where('account_no', $cleanAccountInt)
-                          ->orWhere('account_no', $cleanAccount);
-                    })
+                    ->whereRaw('CAST(series_id AS TEXT) = ?', [$cleanSeries])
+                    ->whereRaw('CAST(account_no AS TEXT) = ?', [$cleanAccount])
                     ->first();
             }
 
@@ -490,18 +484,14 @@ class OracleMasterBridge
             $gpApp = null;
             if (\Illuminate\Support\Facades\Schema::hasTable('vlcs_gp_applications')) {
                 if ($appNo) {
-                    $gpApp = \Illuminate\Support\Facades\DB::table('vlcs_gp_applications')->where('application_no', (int) $appNo)->first();
+                    $gpApp = \Illuminate\Support\Facades\DB::table('vlcs_gp_applications')
+                        ->whereRaw('CAST(application_no AS TEXT) = ?', [(string) $appNo])
+                        ->first();
                 }
                 if (!$gpApp && $cleanSeries && $cleanAccount) {
                     $gpApp = \Illuminate\Support\Facades\DB::table('vlcs_gp_applications')
-                        ->where(function ($q) use ($cleanSeries, $cleanSeriesInt) {
-                            $q->where('series_id', $cleanSeries)
-                              ->orWhere('series_id', (string) $cleanSeriesInt);
-                        })
-                        ->where(function ($q) use ($cleanAccount, $cleanAccountInt) {
-                            $q->where('account_no', $cleanAccount)
-                              ->orWhere('account_no', (string) $cleanAccountInt);
-                        })
+                        ->whereRaw('CAST(series_id AS TEXT) = ?', [$cleanSeries])
+                        ->whereRaw('CAST(account_no AS TEXT) = ?', [$cleanAccount])
                         ->first();
                 }
             }
@@ -510,10 +500,7 @@ class OracleMasterBridge
             $empData = null;
             if ($empCode && \Illuminate\Support\Facades\Schema::hasTable('vlcs_mm_employee')) {
                 $empData = \Illuminate\Support\Facades\DB::table('vlcs_mm_employee')
-                    ->where(function ($q) use ($empCode) {
-                        $q->where('emp_code', (int) $empCode)
-                          ->orWhere('emp_code', $empCode);
-                    })
+                    ->whereRaw('CAST(emp_code AS TEXT) = ?', [$empCode])
                     ->first();
             }
 

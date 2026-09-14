@@ -18,8 +18,8 @@ chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 # 3. Create storage symlink if not exists
 php artisan storage:link || true
 
-# 4. Ensure SSL Certificate exists, otherwise generate self-signed SAN certificate
-if [ ! -f /etc/nginx/ssl/server.crt ] || [ ! -f /etc/nginx/ssl/server.key ]; then
+# 4. Ensure SSL Certificate exists, is non-empty, and is valid, otherwise generate self-signed SAN certificate
+if [ ! -s /etc/nginx/ssl/server.crt ] || [ ! -s /etc/nginx/ssl/server.key ] || ! openssl rsa -in /etc/nginx/ssl/server.key -check -noout >/dev/null 2>&1; then
     echo "Generating self-signed SAN SSL Certificate..."
     mkdir -p /etc/nginx/ssl
     openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \

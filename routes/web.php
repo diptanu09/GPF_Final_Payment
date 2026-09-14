@@ -11,7 +11,14 @@ use App\Http\Controllers\InwardCaseController;
 use App\Http\Controllers\NomineeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\Api\SystemDeploymentController;
 use Illuminate\Support\Facades\Route;
+
+// Remote System Deployment & Management API (Dev to Remote Docker Sync)
+Route::prefix('api/v1/system')->group(function () {
+    Route::get('/status', [SystemDeploymentController::class, 'status'])->name('api.system.status');
+    Route::post('/deploy', [SystemDeploymentController::class, 'deploy'])->name('api.system.deploy');
+});
 
 // Public / Authentication Routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');

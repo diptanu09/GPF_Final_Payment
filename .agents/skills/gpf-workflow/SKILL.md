@@ -114,3 +114,31 @@ npm.cmd run build
 # Run automated tests:
 php vendor/phpunit/phpunit/phpunit --testdox
 ```
+
+---
+
+## 6. Remote Docker Deployment & Maintenance (`10.47.240.169`)
+
+### 1-Click Remote Deployment
+To deploy code updates, run migrations, and refresh caches on the remote Docker host `10.47.240.169` without physical access:
+
+```powershell
+# Run the automated deployment script:
+.\deploy.bat
+
+# Or directly in PowerShell:
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1 -CommitMsg "Your update message"
+```
+
+### Remote Health Check & Status Endpoint
+```powershell
+curl.exe -H "X-Deploy-Token: GPF_DEPLOY_SECRET_TOKEN_2026" http://10.47.240.169/api/v1/system/status
+```
+
+### Browser Access Notes
+- **Direct IP**: `http://10.47.240.169` or `https://10.47.240.169`
+- **Domain Name**: `http://gpffp.local` or `https://gpffp.local` (ensure `10.47.240.169 gpffp.local` in `C:\Windows\System32\drivers\etc\hosts`).
+- **Edge/Chrome "Can't reach this page" or Untrusted SSL**:
+  - In Chrome / Edge on the error page, type `thisisunsafe` to bypass self-signed certificate warnings.
+  - Or install `docker/ssl/server.crt` into Windows "Trusted Root Certification Authorities".
+

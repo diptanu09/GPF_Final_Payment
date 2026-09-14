@@ -84,15 +84,17 @@ RUN if [ -d "/usr/lib/oracle/current" ]; then \
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Copy Composer files first for optimal layer caching
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
-
 # Copy Application Source Code
 COPY . /var/www/html
 
-# Complete Composer autoloader generation
-RUN composer dump-autoload --optimize --no-dev --no-interaction
+# Clean any host cached files from bootstrap/cache or storage before composer install
+RUN rm -f /var/www/html/bootstrap/cache/*.php \
+    && rm -rf /var/www/html/storage/framework/cache/data/* \
+    && rm -rf /var/www/html/storage/framework/sessions/* \
+    && rm -rf /var/www/html/storage/framework/views/*
+
+# Install Composer production dependencies & generate optimized autoloader
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
 # Copy Built Frontend Assets from Stage 1
 COPY --from=frontend-builder /app/public/build /var/www/html/public/build
@@ -107,7 +109,7 @@ COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Generate 10-year SAN SSL Certificate if not already present
 RUN mkdir -p /etc/nginx/ssl \
-    && if [ ! -f /etc/nginx/ssl/server.crt ] || [ ! -f /etc/nginx/ssl/server.key ]; then \
+    && if [ ! -s /etc/nginx/ssl/server.crt ] || [ ! -s /etc/nginx/ssl/server.key ]; then \
         openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
         -keyout /etc/nginx/ssl/server.key \
         -out /etc/nginx/ssl/server.crt \
