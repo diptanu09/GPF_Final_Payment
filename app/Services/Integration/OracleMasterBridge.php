@@ -679,13 +679,10 @@ class OracleMasterBridge
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('vlcs_gp_yearly_balances')) {
                 $rows = \Illuminate\Support\Facades\DB::table('vlcs_gp_yearly_balances')
-                    ->where(function ($q) use ($cleanSeriesInt, $cleanSeries) {
-                        $q->where('series_id', $cleanSeriesInt)->orWhere('series_id', (int) $cleanSeries);
-                    })
-                    ->where(function ($q) use ($cleanAccountInt, $cleanAccount) {
-                        $q->where('account_no', $cleanAccountInt)->orWhere('account_no', (int) $cleanAccount);
-                    })
+                    ->whereRaw('CAST(series_id AS TEXT) = ?', [$cleanSeries])
+                    ->whereRaw('CAST(account_no AS TEXT) = ?', [$cleanAccount])
                     ->whereNotNull('cl_bal_withdrawl')
+                    ->orderByRaw('CAST(fin_year_code AS NUMERIC) DESC')
                     ->get();
 
                 if ($rows->isNotEmpty()) {
@@ -795,12 +792,8 @@ class OracleMasterBridge
                         STRING_AGG(voucher_no::text, ', ') as vouchers,
                         STRING_AGG(abstract_no::text, ', ') as abstracts
                     ")
-                    ->where(function ($q) use ($cleanSeriesInt, $cleanSeries) {
-                        $q->where('series_id', (string) $cleanSeriesInt)->orWhere('series_id', $cleanSeries);
-                    })
-                    ->where(function ($q) use ($cleanAccountInt, $cleanAccount) {
-                        $q->where('account_no', (string) $cleanAccountInt)->orWhere('account_no', $cleanAccount);
-                    })
+                    ->whereRaw('CAST(series_id AS TEXT) = ?', [$cleanSeries])
+                    ->whereRaw('CAST(account_no AS TEXT) = ?', [$cleanAccount])
                     ->where(function ($q) {
                         $q->whereNull('tag')->orWhere('tag', '!=', 'D');
                     })
@@ -849,13 +842,27 @@ class OracleMasterBridge
         }
 
         if (!$baseFinYear || $baseOpeningBal === null) {
-            $latestClosed = $availableBalances->first(fn ($b) => $b['closing_balance'] > 0) ?? $availableBalances->first();
-            if ($latestClosed && $latestClosed['closing_balance'] > 0) {
-                $baseFinYear = $latestClosed['financial_year'];
-                $baseOpeningBal = (float) $latestClosed['closing_balance'];
+            $eventDate = $case->event_date ? Carbon::parse($case->event_date) : null;
+            $targetBaseFY = null;
+            if ($eventDate) {
+                $em = $eventDate->month;
+                $ey = $eventDate->year;
+                $targetBaseFY = ($em >= 4) ? ($ey - 1) . "-$ey" : ($ey - 2) . "-" . ($ey - 1);
+            }
+
+            $matchedPrior = $targetBaseFY ? $availableBalances->firstWhere('financial_year', $targetBaseFY) : null;
+            if ($matchedPrior && $matchedPrior['closing_balance'] > 0) {
+                $baseFinYear = $matchedPrior['financial_year'];
+                $baseOpeningBal = (float) $matchedPrior['closing_balance'];
             } else {
-                $baseFinYear = '2023-2024';
-                $baseOpeningBal = 0.00;
+                $latestClosed = $availableBalances->first(fn ($b) => $b['closing_balance'] > 0) ?? $availableBalances->first();
+                if ($latestClosed && $latestClosed['closing_balance'] > 0) {
+                    $baseFinYear = $latestClosed['financial_year'];
+                    $baseOpeningBal = (float) $latestClosed['closing_balance'];
+                } else {
+                    $baseFinYear = '2023-2024';
+                    $baseOpeningBal = 0.00;
+                }
             }
         }
 
