@@ -16,6 +16,10 @@ class InwardCase extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
 
+    protected $appends = [
+        'formatted_gpf_account',
+    ];
+
     protected $fillable = [
         'registration_no',
         'diary_number',

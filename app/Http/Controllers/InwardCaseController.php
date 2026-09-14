@@ -116,7 +116,13 @@ class InwardCaseController extends Controller
         $year = date('Y');
         $formatSeries = str_pad($validated['series_code'], 2, '0', STR_PAD_LEFT);
         $cleanAccount = preg_replace('/[^0-9]/', '', $validated['account_no']);
-        $registrationNo = $year . $formatSeries . $cleanAccount;
+        $baseRegNo = $year . $formatSeries . $cleanAccount;
+        $registrationNo = $baseRegNo;
+        $counter = 1;
+        while (InwardCase::withTrashed()->where('registration_no', $registrationNo)->exists()) {
+            $registrationNo = $baseRegNo . '-' . $counter;
+            $counter++;
+        }
 
         $pensionTypes = $this->oracleBridge->getPensionTypes();
         $selectedPension = $pensionTypes->firstWhere('id', (string) $validated['pension_type_id']);
