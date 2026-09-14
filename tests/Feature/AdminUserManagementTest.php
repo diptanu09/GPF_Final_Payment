@@ -22,7 +22,7 @@ class AdminUserManagementTest extends TestCase
             [
                 'name' => 'Administrator / Director',
                 'email' => 'dir@tripura.gov.in',
-                'password' => Hash::make('dir'),
+                'password' => Hash::make('Passw0rd'),
                 'role' => 'admin',
                 'approval_status' => 'approved',
                 'is_active' => true,
@@ -34,7 +34,7 @@ class AdminUserManagementTest extends TestCase
             [
                 'name' => 'R. K. Debbarma',
                 'email' => 'rkdb@tripura.gov.in',
-                'password' => Hash::make('rbsr123'),
+                'password' => Hash::make('Passw0rd'),
                 'role' => 'approver',
                 'approval_status' => 'approved',
                 'is_active' => true,
@@ -46,7 +46,7 @@ class AdminUserManagementTest extends TestCase
             [
                 'name' => 'Deeksha',
                 'email' => 'deeksha@tripura.gov.in',
-                'password' => Hash::make('secret123'),
+                'password' => Hash::make('Passw0rd'),
                 'role' => 'deo',
                 'approval_status' => 'approved',
                 'is_active' => true,
@@ -58,7 +58,7 @@ class AdminUserManagementTest extends TestCase
             [
                 'name' => 'Kalipada',
                 'email' => 'kalipada@tripura.gov.in',
-                'password' => Hash::make('secret123'),
+                'password' => Hash::make('Passw0rd'),
                 'role' => 'deo',
                 'approval_status' => 'approved',
                 'is_active' => true,
@@ -70,7 +70,7 @@ class AdminUserManagementTest extends TestCase
             [
                 'name' => 'Anjana',
                 'email' => 'anjana@tripura.gov.in',
-                'password' => Hash::make('secret123'),
+                'password' => Hash::make('Passw0rd'),
                 'role' => 'checker',
                 'approval_status' => 'approved',
                 'is_active' => true,
@@ -252,9 +252,9 @@ class AdminUserManagementTest extends TestCase
         ]);
         $failResponse->assertSessionHasErrors('current_password');
 
-        // Successful attempt with correct current password ('rbsr123')
+        // Successful attempt with correct current password ('Passw0rd')
         $successResponse = $this->actingAs($user)->put('/profile/password', [
-            'current_password' => 'rbsr123',
+            'current_password' => 'Passw0rd',
             'password' => 'BrandNewPassword@2026',
             'password_confirmation' => 'BrandNewPassword@2026',
         ]);

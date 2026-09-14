@@ -16,12 +16,12 @@ class UserAuthenticationFeatureTest extends TestCase
         $this->seed();
 
         $accounts = [
-            ['username' => 'dir', 'password' => 'dir', 'role' => 'admin', 'name' => 'Director', 'email' => 'dir@tripura.gov.in'],
-            ['username' => 'jdg', 'password' => 'Juhi1234@', 'role' => 'admin', 'name' => 'JDG', 'email' => 'jdg@tripura.gov.in'],
-            ['username' => 'rkdb', 'password' => 'rbsr123', 'role' => 'approver', 'name' => 'R.K. Debbarma', 'email' => 'rkdb@tripura.gov.in'],
-            ['username' => 'anjana', 'password' => 'ad123', 'role' => 'checker', 'name' => 'Anjana', 'email' => 'anjana@tripura.gov.in'],
-            ['username' => 'deeksha', 'password' => 'deeksha@123', 'role' => 'deo', 'name' => 'Deeksha', 'email' => 'deeksha@tripura.gov.in'],
-            ['username' => 'kalipada', 'password' => 'Lp123', 'role' => 'deo', 'name' => 'Kalipada', 'email' => 'kalipada@tripura.gov.in'],
+            ['username' => 'dir', 'password' => 'Passw0rd', 'role' => 'admin', 'name' => 'Director', 'email' => 'dir@tripura.gov.in'],
+            ['username' => 'jdg', 'password' => 'Passw0rd', 'role' => 'admin', 'name' => 'JDG', 'email' => 'jdg@tripura.gov.in'],
+            ['username' => 'rkdb', 'password' => 'Passw0rd', 'role' => 'approver', 'name' => 'R.K. Debbarma', 'email' => 'rkdb@tripura.gov.in'],
+            ['username' => 'anjana', 'password' => 'Passw0rd', 'role' => 'checker', 'name' => 'Anjana', 'email' => 'anjana@tripura.gov.in'],
+            ['username' => 'deeksha', 'password' => 'Passw0rd', 'role' => 'deo', 'name' => 'Deeksha', 'email' => 'deeksha@tripura.gov.in'],
+            ['username' => 'kalipada', 'password' => 'Passw0rd', 'role' => 'deo', 'name' => 'Kalipada', 'email' => 'kalipada@tripura.gov.in'],
         ];
 
         foreach ($accounts as $acc) {
@@ -48,12 +48,13 @@ class UserAuthenticationFeatureTest extends TestCase
     public function test_institutional_users_can_authenticate(): void
     {
         $institutionalAccounts = [
-            ['username' => 'dir', 'password' => 'dir', 'expected_role' => 'admin'],
-            ['username' => 'jdg', 'password' => 'Juhi1234@', 'expected_role' => 'admin'],
-            ['username' => 'rkdb', 'password' => 'rbsr123', 'expected_role' => 'approver'],
-            ['username' => 'anjana', 'password' => 'ad123', 'expected_role' => 'checker'],
-            ['username' => 'deeksha', 'password' => 'deeksha@123', 'expected_role' => 'deo'],
-            ['username' => 'kalipada', 'password' => 'Lp123', 'expected_role' => 'deo'],
+            ['username' => 'admin', 'password' => 'Passw0rd', 'expected_role' => 'admin'],
+            ['username' => 'dir', 'password' => 'Passw0rd', 'expected_role' => 'admin'],
+            ['username' => 'jdg', 'password' => 'Passw0rd', 'expected_role' => 'admin'],
+            ['username' => 'rkdb', 'password' => 'Passw0rd', 'expected_role' => 'approver'],
+            ['username' => 'anjana', 'password' => 'Passw0rd', 'expected_role' => 'checker'],
+            ['username' => 'deeksha', 'password' => 'Passw0rd', 'expected_role' => 'deo'],
+            ['username' => 'kalipada', 'password' => 'Passw0rd', 'expected_role' => 'deo'],
         ];
 
         foreach ($institutionalAccounts as $acc) {
