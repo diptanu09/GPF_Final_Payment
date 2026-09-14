@@ -54,19 +54,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Oracle Instant Client 19c (19.24 LTS) for full compatibility with Oracle 11g Enterprise
-RUN mkdir -p /opt/oracle /usr/lib/oracle/current/network/admin && cd /opt/oracle \
+RUN mkdir -p /opt/oracle /usr/lib/oracle && cd /opt/oracle \
     && curl -fSL -o instantclient-basic.zip https://download.oracle.com/otn_software/linux/instantclient/1924000/instantclient-basiclite-linux.x64-19.24.0.0.0dbru.zip \
     && curl -fSL -o instantclient-sdk.zip https://download.oracle.com/otn_software/linux/instantclient/1924000/instantclient-sdk-linux.x64-19.24.0.0.0dbru.zip \
     && unzip -q instantclient-basic.zip \
     && unzip -q instantclient-sdk.zip \
     && rm -f instantclient-basic.zip instantclient-sdk.zip \
-    && mv instantclient_*/* /usr/lib/oracle/current/ \
-    && rmdir instantclient_* \
+    && mv instantclient_* /usr/lib/oracle/current \
+    && mkdir -p /usr/lib/oracle/current/network/admin \
     && ln -sf /usr/lib/oracle/current/libclntsh.so.* /usr/lib/oracle/current/libclntsh.so \
     && ln -sf /usr/lib/oracle/current/libocci.so.* /usr/lib/oracle/current/libocci.so \
     && echo /usr/lib/oracle/current > /etc/ld.so.conf.d/oracle-instantclient.conf \
     && ldconfig \
-    && printf "SQLNET.ALLOWED_LOGON_VERSION_CLIENT=8\nSQLNET.ALLOWED_LOGON_VERSION_SERVER=8\n" > /usr/lib/oracle/current/network/admin/sqlnet.ora
+    && printf "SQLNET.ALLOWED_LOGON_VERSION_CLIENT=8\nSQLNET.ALLOWED_LOGON_VERSION_SERVER=8\n" > /usr/lib/oracle/current/network/admin/sqlnet.ora \
+    && rm -rf /opt/oracle
 
 # Configure & Install PHP Extensions (including OCI8 and PDO_OCI)
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
