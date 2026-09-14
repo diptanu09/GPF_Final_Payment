@@ -359,6 +359,18 @@ export default function CalculationSheet({
                     <div className="flex items-center gap-3">
                         <button
                             type="button"
+                            onClick={() => {
+                                router.get(`/calculation/${case_data.id}`, { refresh: '1', base_fin_year: finYear }, { preserveState: false });
+                            }}
+                            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition shadow-sm"
+                            title="Reload fresh monthly vouchers and balances directly from VLC"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>Reload VLC Data</span>
+                        </button>
+
+                        <button
+                            type="button"
                             onClick={submit}
                             disabled={processing}
                             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"

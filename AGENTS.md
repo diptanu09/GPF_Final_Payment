@@ -35,23 +35,23 @@ This document contains the complete architectural specification, database mappin
   - `DLIS_SIGNED_AUTH_REPORT`
   - `DLIS_SIGNED_REV_REPORT`
   - `ACNTS_SAVE`
+- **Deprecated Legacy GPFFP Historical Tables (Strictly Excluded)**:
+  - `gpffp.GPF_APPLICATION`
+  - `gpffp.LTA_APPLICATION`
+  - `gpffp.GPF_SUBSCRIPTION`
 
-### Allowed & Required Tables:
-- **`VLCS` Master Tables**:
-  - `VLCS.GP_ACCOUNTS`: Account master (Series, Account No, Balances, Closure Tag, Date of Closure, Application No, Mobile, HRMS Code).
-  - `VLCS.GP_APPLICATIONS` (105,030+ records): Primary demographic master containing exact `DESIGNATION`, `APPLICANT_ADDRESS`, `DDO_CODE`, `SPOUCE_NAME`, `GUARDIAN_NAME`, `DATE_OF_BIRTH`, `DATE_OF_JOINING`.
-  - `VLCS.STATE_DDO`: DDO master (`DDO_CODE`, `DDO_DESG`, `DDO_TREASURY_CODE`, `VLC_DDO`, `PHONE_NO`, `DDO_EMAIL_ID`).
-  - `VLCS.STATE_TREASURY`: Treasury master (`TRES_CODE`, `TRES_NAME`, `EMAIL_ID`).
-  - `VLCS.MM_GPF_SERIES`: Series master (`SERIES_ID`, `SERIES_DESCR`).
-  - `VLCS.GP_MISSING_CREDIT`: Uncredited subscriptions (`SLIP_DATE`, `FIN_YEAR_CODE`, `CLEAR_TAG`).
-  - `VLCS.MM_EMPLOYEE`: Employee master fallback (`EMP_CODE`, `EMP_NAME`, `EMP_DESIGNATION`, `EMP_MAIL_ADDRESS`).
-- **`gpffp` Historical Tables**:
-  - `gpffp.USER_ACCOUNTS`: Institutional user accounts (`USER_ID`, `USER_NAME`, `USER_DESG`, `EMAIL`, `USER_STATUS`).
-  - `gpffp.GPF_APPLICATION`: Historical final payment applications.
-  - `gpffp.LTA_APPLICATION`: Historical LTA cases.
-  - `gpffp.GPF_SUBSCRIPTION`: Historical monthly ledger entries.
-  - `gpffp.GPF_AMOUNT_INFO` & `gpffp.GPF_ACCOUNT_CALCULATION`: Historical calculation data.
-  - `gpffp.GPF_CASES_LOG` & `gpffp.GPF_OUTWARD`: Historical audit & dispatch logs.
+### Allowed & Required Master Tables (Pure VLC Master):
+All demographic profiles, yearly balances, and monthly vouchers must strictly originate from **`VLCS`** master tables (and their PostgreSQL replica counterparts in `gpffp.vlcs_*`):
+- **`VLCS.GP_ACCOUNTS`**: Account master (Series, Account No, Balances, Closure Tag, Date of Closure, Application No, Mobile, HRMS Code).
+- **`VLCS.GP_APPLICATIONS`** (105,030+ records): Primary demographic master containing exact `DESIGNATION`, `APPLICANT_ADDRESS`, `DDO_CODE`, `SPOUCE_NAME`, `GUARDIAN_NAME`, `DATE_OF_BIRTH`, `DATE_OF_JOINING`.
+- **`VLCS.GP_YEARLY_BALANCES`**: Audited historical yearly closing balances for base financial years (`SERIES_ID`, `ACCOUNT_NO`, `FIN_YEAR_CODE`, `OP_BALANCE_WITHDRAWL`, `CL_BAL_WITHDRAWL`, `INTR_WITHDRAWL`).
+- **`VLCS.GP_VOUCHER_ACC_DETAILS`** (24,000,000+ records): Individual monthly transaction vouchers (`SERIES_ID`, `ACCOUNT_NO`, `PAY_SLIP_DATE`, `SUBSCRIPTION_AMT`, `REFUND_AMT`, `OTHERS_AMT`, `WITHDRAWAL_AMT`, `VOUCHER_NO`, `ABSTRACT_NO`, `TAG`, `POSTING_TYPE`).
+- **`VLCS.STATE_DDO`**: DDO master (`DDO_CODE`, `DDO_DESG`, `DDO_TREASURY_CODE`, `VLC_DDO`, `PHONE_NO`, `DDO_EMAIL_ID`).
+- **`VLCS.STATE_TREASURY`**: Treasury master (`TRES_CODE`, `TRES_NAME`, `EMAIL_ID`).
+- **`VLCS.MM_GPF_SERIES`**: Series master (`SERIES_ID`, `SERIES_DESCR`).
+- **`VLCS.GP_MISSING_CREDIT`**: Uncredited subscriptions (`SLIP_DATE`, `FIN_YEAR_CODE`, `CLEAR_TAG`).
+- **`VLCS.MM_EMPLOYEE`**: Employee master fallback (`EMP_CODE`, `EMP_NAME`, `EMP_DESIGNATION`, `EMP_MAIL_ADDRESS`).
+- **`gpffp.USER_ACCOUNTS`**: Institutional user accounts for authentication and officer governance only.
 
 ---
 
@@ -79,36 +79,45 @@ When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSub
    ├── Extract: APPLICATION_NO, Balances, Closure Tag, Date of Closure, Mobile, HRMS Code
 2. Query VLCS.GP_APPLICATIONS (indexed by APPLICATION_NO or SERIES_ID + ACCOUNT_NO)
    ├── Extract: DESIGNATION, APPLICANT_ADDRESS, DDO_CODE, SPOUCE_NAME, DOB, DOJ
-3. Fallbacks: gpffp.GPF_APPLICATION → gpffp.LTA_APPLICATION → VLCS.MM_EMPLOYEE
+3. Fallbacks: VLCS.MM_EMPLOYEE
 4. Resolve DDO & Treasury via VLCS.STATE_DDO:
    ├── Match DDO_CODE = :d OR VLC_DDO = :d
    └── Extract canonical DDO_CODE and DDO_TREASURY_CODE (auto-fills Treasury dropdown)
 5. Dual-Database Fallback:
-   └── If Oracle 11g host is offline, immediately query PostgreSQL 18 replica tables.
+   └── If Oracle 11g host is offline, immediately query PostgreSQL 18 replica tables (gpffp.vlcs_*).
 ```
 
 ---
 
-## 5. Calculation Engine & Business Rules
+## 5. Calculation Engine & Voucher Aggregation Rules
 
-1. **Base Financial Year & Opening Balance**:
-   - Fetched dynamically from `VLCS.GP_ACCOUNTS` / `gp_yearly_balances` based on the latest closed FY.
+1. **Monthly Voucher Aggregation (`VLCS.GP_VOUCHER_ACC_DETAILS`)**:
+   - Query filters strictly on `(SERIES_ID = :series_num OR TO_CHAR(SERIES_ID) = :series_str)` AND `(ACCOUNT_NO = :acct_num OR TO_CHAR(ACCOUNT_NO) = :acct_str)`.
+   - Filters out deleted/unposted vouchers: `(TAG IS NULL OR TAG != 'D')` and `(POSTING_TYPE IS NULL OR POSTING_TYPE != 'F')`.
+   - Groups by calendar month `TO_CHAR(PAY_SLIP_DATE, 'YYYY-MM')`:
+     $$\text{Total Deposit} = \sum (\text{SUBSCRIPTION\_AMT} + \text{REFUND\_AMT} + \text{OTHERS\_AMT})$$
+     $$\text{Total Withdrawal} = \sum \text{WITHDRAWAL\_AMT}$$
+   - Multiple voucher numbers are concatenated with `LISTAGG(VOUCHER_NO, ', ')`.
+   - Dual-database fallback queries `gpffp.vlcs_gp_voucher_acc_details` via `STRING_AGG` in PostgreSQL 18.
+2. **Base Financial Year & Opening Balance**:
+   - Fetched dynamically from `VLCS.GP_YEARLY_BALANCES` based on the latest closed FY or user-selected base FY.
    - Supports multi-year spans (e.g., Base FY 2023-2024 to Current FY 2026-2027) with progressive compounding at annual FY interest rates (default statutory: **7.10% per annum**).
-2. **Cut Month & Interest Suppression Rule**:
-   - Subscriptions and withdrawals occurring **after** the interest cut month (event month) are excluded from balance and earn **zero** interest.
-   - For months after the cut month within the event FY, the interest computed is strictly `0.00`.
-3. **Delay Interest Calculation**:
+   - "Reload VLC Data" button on `/calculation/{caseId}` forces fresh re-aggregation with `refresh=1`.
+3. **Cut Month & Interest Suppression Rule**:
+   - Subscriptions and withdrawals occurring **after** the interest cut month (event month) are excluded from progressive balance and earn **zero** interest.
+   - For months after the cut month within the event FY, the actual interest computed is strictly `0.00`.
+4. **Delay Interest Calculation**:
    - When payment is processed after the event FY (or after interest cut month), delayed interest is computed on the final closing balance for each delayed month:
      $$\text{Delayed Interest} = \frac{\text{Closing Balance} \times \text{Rate} \times \text{Delayed Months}}{1200}$$
    - Both `actual_interest_computed` and `delayed_interest_computed` are recorded separately and summed in `total_interest_computed`.
-4. **Deposit-Linked Insurance Scheme (DLIS)**:
+5. **Deposit-Linked Insurance Scheme (DLIS)**:
    - Admissible on `CaseType::DEATH_IN_SERVICE` (`pension_type_id = '2'` or `'7'`).
    - Maximum statutory coverage: **₹60,000**.
    - Cites Govt. of Tripura Finance Dept. O.M. No. `F.12(7)/FIN(G)/75` dated 18-02-76 and Debit Head `2235-60-104`.
-5. **Nominee / Beneficiary Matrix**:
+6. **Nominee / Beneficiary Matrix**:
    - Multiple nominees supported with exact `beneficiary_code`, `relationship`, `share_percentage`, and `allocated_amount`.
    - Odd paisa remainder is automatically reconciled to ensure the sum equals the exact net payable balance.
-6. **Missing Credits**:
+7. **Missing Credits**:
    - Retrieved from `VLCS.GP_MISSING_CREDIT` for uncredited deduction adjustments.
 
 ---

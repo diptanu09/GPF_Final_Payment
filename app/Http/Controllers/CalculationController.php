@@ -37,8 +37,9 @@ class CalculationController extends Controller
 
         $requestedBaseYear = $request->query('base_fin_year');
         $requestedOpeningBal = $request->has('opening_balance') ? (float) $request->query('opening_balance') : null;
+        $forceRefresh = $request->query('refresh') === '1' || $request->query('refresh') === 'true';
 
-        if ($requestedBaseYear || !$latestRun) {
+        if ($requestedBaseYear || !$latestRun || $forceRefresh) {
             // Build dynamic multi-year progressive ledger from Base Financial Year to Cutoff Date
             $built = $this->oracleBridge->buildMultiYearLedger($case, $requestedBaseYear, $requestedOpeningBal);
             $openingFinYear = $built['base_fin_year'];

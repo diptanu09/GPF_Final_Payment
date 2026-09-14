@@ -26,6 +26,10 @@ class OracleMasterBridge
         'DLIS_REV_REPORTS_UPLOAD',
         'DLIS_SIGNED_AUTH_REPORT',
         'DLIS_SIGNED_REV_REPORT',
+        'GPF_SUBSCRIPTION',
+        'GPF_APPLICATION',
+        'LTA_APPLICATION',
+        'ACNTS_SAVE',
     ];
 
     /**
@@ -49,7 +53,8 @@ class OracleMasterBridge
         $pass = config('database.connections.oracle_legacy.password', 'gpffp');
 
         // Fast probe to avoid locking the PHP worker thread if the host is down or unreachable
-        $socket = @fsockopen($host, $port, $errno, $errstr, 0.4);
+        $probeTimeout = (float) env('ORACLE_PROBE_TIMEOUT', 1.5);
+        $socket = @fsockopen($host, $port, $errno, $errstr, $probeTimeout);
         if (!$socket) {
             Log::info("OracleMasterBridge: Oracle server {$host}:{$port} is currently unreachable ({$errstr}). Operating in PostgreSQL replica fallback mode.");
             return null;
@@ -255,7 +260,7 @@ class OracleMasterBridge
     }
 
     /**
-     * Look up subscriber details from VLCS.GP_ACCOUNTS, VLCS.GP_APPLICATIONS, gpffp.GPF_APPLICATION, gpffp.LTA_APPLICATION, and VLCS.MM_EMPLOYEE
+     * Look up subscriber details from VLCS.GP_ACCOUNTS, VLCS.GP_APPLICATIONS, VLCS.STATE_DDO, and VLCS.MM_EMPLOYEE
      */
     public function lookupSubscriber(string $seriesCode, string $accountNo): array
     {
@@ -330,39 +335,7 @@ class OracleMasterBridge
                     }
                 }
 
-                // 3. Query gpffp.GPF_APPLICATION for any recorded final payment details
-                $gpfApp = null;
-                $gpfStmt = oci_parse($conn, "
-                    SELECT 
-                        TITLE, DESG_TITLE, DESIGNATION, SPOUSE_NAME, RELATION, 
-                        PERSONAL_ADDRESS, DDO_CODE, TREASURY_CODE, DATE_OF_EFFECT, LAST_FUND_DEDUCTION
-                    FROM gpffp.GPF_APPLICATION
-                    WHERE ACCOUNT_NO = :acct AND SERIES_ID = :series
-                      AND ROWNUM = 1
-                ");
-                oci_bind_by_name($gpfStmt, ':acct', $cleanAccount);
-                oci_bind_by_name($gpfStmt, ':series', $cleanSeries);
-                if (@oci_execute($gpfStmt)) {
-                    $gpfApp = oci_fetch_assoc($gpfStmt);
-                    oci_free_statement($gpfStmt);
-                }
-
-                // 4. Query gpffp.LTA_APPLICATION
-                $ltaApp = null;
-                $ltaStmt = oci_parse($conn, "
-                    SELECT ACC_HOLDER_NAME, DESIGNATION, ADDRESS, TREASURY, DOR, DODR
-                    FROM gpffp.LTA_APPLICATION
-                    WHERE ACCOUNT_NO = :acct AND SERIES_ID = :series
-                      AND ROWNUM = 1
-                ");
-                oci_bind_by_name($ltaStmt, ':acct', $cleanAccount);
-                oci_bind_by_name($ltaStmt, ':series', $cleanSeries);
-                if (@oci_execute($ltaStmt)) {
-                    $ltaApp = oci_fetch_assoc($ltaStmt);
-                    oci_free_statement($ltaStmt);
-                }
-
-                // 5. Query VLCS.MM_EMPLOYEE (only if empCode is known)
+                // 3. Query VLCS.MM_EMPLOYEE (only if empCode is known)
                 $empData = null;
                 if ($empCode) {
                     $empStmt = oci_parse($conn, "
@@ -379,17 +352,15 @@ class OracleMasterBridge
                     }
                 }
 
-                if ($acc || $gpApp || $gpfApp || $empData || $ltaApp) {
+                if ($acc || $gpApp || $empData) {
                     $isClosed = (strtoupper(trim($acc['ACCOUNT_CLOSED_TAG'] ?? '')) === 'Y');
                     $closureDate = ($acc['DATE_OF_CLOSURE'] ?? null) ? date('d-m-Y', strtotime($acc['DATE_OF_CLOSURE'])) : null;
                     $warningMessage = $isClosed ? "Notice: GPF account was closed on {$closureDate}." : null;
 
-                    $rawName = trim($acc['ACC_HOLDER_NAME'] ?? ($gpApp['APPLICANT_NAME'] ?? ($gpfApp['SUBSCRIBER_NAME'] ?? ($empData['EMP_NAME'] ?? ''))));
+                    $rawName = trim($acc['ACC_HOLDER_NAME'] ?? ($gpApp['APPLICANT_NAME'] ?? ($empData['EMP_NAME'] ?? '')));
 
-                    // Designation Resolution Hierarchy
+                    // Designation Resolution Hierarchy (pure VLCS)
                     $rawDesg = trim($gpApp['DESIGNATION'] ?? '')
-                        ?: trim($gpfApp['DESIGNATION'] ?? '')
-                        ?: trim($ltaApp['DESIGNATION'] ?? '')
                         ?: trim($empData['EMP_DESIGNATION'] ?? '');
 
                     if (in_array(strtolower($rawDesg), ['n/a', 'na', 'null', 'none', '-', '.'], true)) {
@@ -397,7 +368,7 @@ class OracleMasterBridge
                     }
                     $designation = $rawDesg ?: 'Government Employee';
 
-                    // Personal Address Resolution Hierarchy
+                    // Personal Address Resolution Hierarchy (pure VLCS)
                     $personalAddress = trim($gpApp['APPLICANT_ADDRESS'] ?? '');
                     if ($personalAddress && !empty($gpApp['APPLICANT_PIN_CODE'])) {
                         if (!str_contains($personalAddress, trim($gpApp['APPLICANT_PIN_CODE']))) {
@@ -405,13 +376,13 @@ class OracleMasterBridge
                         }
                     }
                     if (!$personalAddress) {
-                        $personalAddress = trim($gpfApp['PERSONAL_ADDRESS'] ?? ($ltaApp['ADDRESS'] ?? ($empData['EMP_MAIL_ADDRESS'] ?? '')));
+                        $personalAddress = trim($empData['EMP_MAIL_ADDRESS'] ?? '');
                     }
 
                     // DDO and Treasury Resolution via VLCS.STATE_DDO
-                    $rawDdo = trim($gpApp['DDO_CODE'] ?? ($gpfApp['DDO_CODE'] ?? ''));
+                    $rawDdo = trim($gpApp['DDO_CODE'] ?? '');
                     $ddoCode = $rawDdo;
-                    $treasuryCode = trim($gpfApp['TREASURY_CODE'] ?? ($ltaApp['TREASURY'] ?? ''));
+                    $treasuryCode = '';
 
                     if ($rawDdo) {
                         $ddoStmt = oci_parse($conn, "SELECT DDO_CODE, DDO_TREASURY_CODE FROM VLCS.STATE_DDO WHERE DDO_CODE = :d AND ROWNUM = 1");
@@ -433,15 +404,14 @@ class OracleMasterBridge
 
                         if ($ddoRow) {
                             $ddoCode = trim($ddoRow['DDO_CODE']);
-                            if (!$treasuryCode && !empty($ddoRow['DDO_TREASURY_CODE'])) {
+                            if (!empty($ddoRow['DDO_TREASURY_CODE'])) {
                                 $treasuryCode = trim($ddoRow['DDO_TREASURY_CODE']);
                             }
                         }
                     }
 
-                    // Spouse / Guardian
+                    // Spouse / Guardian (pure VLCS)
                     $spouse = trim($gpApp['SPOUCE_NAME'] ?? '')
-                        ?: trim($gpfApp['SPOUSE_NAME'] ?? '')
                         ?: trim($gpApp['GUARDIAN_NAME'] ?? '')
                         ?: trim($empData['FATHER_HUSBANT_NAME'] ?? '');
                     if (in_array(strtolower($spouse), ['n/a', 'na', 'null', 'none', '-'], true)) {
@@ -494,58 +464,67 @@ class OracleMasterBridge
     {
         $cleanAccount = preg_replace('/[^0-9]/', '', $accountNo);
         $cleanSeries = trim($seriesCode);
+        $cleanSeriesInt = (int) $cleanSeries;
+        $cleanAccountInt = (int) $cleanAccount;
 
         try {
             // 1. vlcs_gp_accounts
             $acc = null;
             if (\Illuminate\Support\Facades\Schema::hasTable('vlcs_gp_accounts')) {
                 $acc = \Illuminate\Support\Facades\DB::table('vlcs_gp_accounts')
-                    ->where('series_id', $cleanSeries)
-                    ->where('account_no', $cleanAccount)
+                    ->where(function ($q) use ($cleanSeries, $cleanSeriesInt) {
+                        $q->where('series_id', $cleanSeriesInt)
+                          ->orWhere('series_id', $cleanSeries);
+                    })
+                    ->where(function ($q) use ($cleanAccount, $cleanAccountInt) {
+                        $q->where('account_no', $cleanAccountInt)
+                          ->orWhere('account_no', $cleanAccount);
+                    })
                     ->first();
             }
 
             $appNo = $acc->application_no ?? null;
-            $empCode = trim($acc->emp_code ?? '');
+            $empCode = trim((string) ($acc->emp_code ?? ''));
 
             // 2. vlcs_gp_applications
             $gpApp = null;
             if (\Illuminate\Support\Facades\Schema::hasTable('vlcs_gp_applications')) {
                 if ($appNo) {
-                    $gpApp = \Illuminate\Support\Facades\DB::table('vlcs_gp_applications')->where('application_no', $appNo)->first();
+                    $gpApp = \Illuminate\Support\Facades\DB::table('vlcs_gp_applications')->where('application_no', (int) $appNo)->first();
                 }
                 if (!$gpApp && $cleanSeries && $cleanAccount) {
                     $gpApp = \Illuminate\Support\Facades\DB::table('vlcs_gp_applications')
-                        ->where('series_id', $cleanSeries)
-                        ->where('account_no', $cleanAccount)
+                        ->where(function ($q) use ($cleanSeries, $cleanSeriesInt) {
+                            $q->where('series_id', $cleanSeries)
+                              ->orWhere('series_id', (string) $cleanSeriesInt);
+                        })
+                        ->where(function ($q) use ($cleanAccount, $cleanAccountInt) {
+                            $q->where('account_no', $cleanAccount)
+                              ->orWhere('account_no', (string) $cleanAccountInt);
+                        })
                         ->first();
                 }
             }
 
-            // 3. gpffp_gpf_application
-            $gpfApp = null;
-            if (\Illuminate\Support\Facades\Schema::hasTable('gpffp_gpf_application')) {
-                $gpfApp = \Illuminate\Support\Facades\DB::table('gpffp_gpf_application')
-                    ->where('account_no', $cleanAccount)
-                    ->where('series_id', $cleanSeries)
+            // 3. vlcs_mm_employee
+            $empData = null;
+            if ($empCode && \Illuminate\Support\Facades\Schema::hasTable('vlcs_mm_employee')) {
+                $empData = \Illuminate\Support\Facades\DB::table('vlcs_mm_employee')
+                    ->where(function ($q) use ($empCode) {
+                        $q->where('emp_code', (int) $empCode)
+                          ->orWhere('emp_code', $empCode);
+                    })
                     ->first();
             }
 
-            // 4. vlcs_mm_employee
-            $empData = null;
-            if ($empCode && \Illuminate\Support\Facades\Schema::hasTable('vlcs_mm_employee')) {
-                $empData = \Illuminate\Support\Facades\DB::table('vlcs_mm_employee')->where('emp_code', $empCode)->first();
-            }
-
-            if ($acc || $gpApp || $gpfApp || $empData) {
+            if ($acc || $gpApp || $empData) {
                 $isClosed = (strtoupper(trim($acc->account_closed_tag ?? '')) === 'Y');
                 $closureDate = ($acc->date_of_closure ?? null) ? date('d-m-Y', strtotime($acc->date_of_closure)) : null;
                 $warningMessage = $isClosed ? "Notice: GPF account was closed on {$closureDate}." : null;
 
-                $rawName = trim($acc->acc_holder_name ?? ($gpApp->applicant_name ?? ($gpfApp->subscriber_name ?? ($empData->emp_name ?? ''))));
+                $rawName = trim($acc->acc_holder_name ?? ($gpApp->applicant_name ?? ($empData->emp_name ?? '')));
 
                 $rawDesg = trim($gpApp->designation ?? '')
-                    ?: trim($gpfApp->designation ?? '')
                     ?: trim($empData->emp_designation ?? '');
 
                 if (in_array(strtolower($rawDesg), ['n/a', 'na', 'null', 'none', '-', '.'], true)) {
@@ -560,12 +539,12 @@ class OracleMasterBridge
                     }
                 }
                 if (!$personalAddress) {
-                    $personalAddress = trim($gpfApp->personal_address ?? ($empData->emp_mail_address ?? ''));
+                    $personalAddress = trim($empData->emp_mail_address ?? '');
                 }
 
-                $rawDdo = trim($gpApp->ddo_code ?? ($gpfApp->ddo_code ?? ''));
+                $rawDdo = trim($gpApp->ddo_code ?? '');
                 $ddoCode = $rawDdo;
-                $treasuryCode = trim($gpfApp->treasury_code ?? '');
+                $treasuryCode = '';
 
                 if ($rawDdo && \Illuminate\Support\Facades\Schema::hasTable('vlcs_state_ddo')) {
                     $ddoRow = \Illuminate\Support\Facades\DB::table('vlcs_state_ddo')
@@ -574,14 +553,13 @@ class OracleMasterBridge
                         ->first();
                     if ($ddoRow) {
                         $ddoCode = trim($ddoRow->ddo_code);
-                        if (!$treasuryCode && !empty($ddoRow->ddo_treasury_code)) {
+                        if (!empty($ddoRow->ddo_treasury_code)) {
                             $treasuryCode = trim($ddoRow->ddo_treasury_code);
                         }
                     }
                 }
 
                 $spouse = trim($gpApp->spouce_name ?? '')
-                    ?: trim($gpfApp->spouse_name ?? '')
                     ?: trim($gpApp->guardian_name ?? '')
                     ?: trim($empData->father_husbant_name ?? '');
 
@@ -656,6 +634,8 @@ class OracleMasterBridge
         $conn = $this->getConnection();
         $cleanAccount = preg_replace('/[^0-9]/', '', $accountNo);
         $cleanAccountInt = (int) $cleanAccount;
+        $cleanSeries = trim($seriesCode);
+        $cleanSeriesInt = (int) $cleanSeries;
 
         if ($conn) {
             try {
@@ -668,11 +648,14 @@ class OracleMasterBridge
                            a.DATE_OF_CLOSURE, a.ACCOUNT_CLOSED_TAG
                     FROM VLCS.GP_YEARLY_BALANCES a
                     LEFT JOIN VLCS.MM_FINANCIAL_YEAR b ON TO_CHAR(a.FIN_YEAR_CODE) = TO_CHAR(b.FIN_YEAR_CODE)
-                    WHERE (a.ACCOUNT_NO = :acct_num OR TO_CHAR(a.ACCOUNT_NO) = :acct_str)
+                    WHERE (a.SERIES_ID = :series_num OR TO_CHAR(a.SERIES_ID) = :series_str)
+                      AND (a.ACCOUNT_NO = :acct_num OR TO_CHAR(a.ACCOUNT_NO) = :acct_str)
                       AND a.FIN_YEAR_CODE IS NOT NULL
                       AND a.CL_BAL_WITHDRAWL IS NOT NULL
                     ORDER BY TO_NUMBER(REGEXP_SUBSTR(a.FIN_YEAR_CODE, '^[0-9]+')) DESC
                 ");
+                oci_bind_by_name($stmt, ':series_num', $cleanSeriesInt);
+                oci_bind_by_name($stmt, ':series_str', $cleanSeries);
                 oci_bind_by_name($stmt, ':acct_num', $cleanAccountInt);
                 oci_bind_by_name($stmt, ':acct_str', $cleanAccount);
 
@@ -705,7 +688,40 @@ class OracleMasterBridge
             }
         }
 
-        // Fallback list of financial years
+        // Fallback to PostgreSQL 18 replica table
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('vlcs_gp_yearly_balances')) {
+                $rows = \Illuminate\Support\Facades\DB::table('vlcs_gp_yearly_balances')
+                    ->where(function ($q) use ($cleanSeriesInt, $cleanSeries) {
+                        $q->where('series_id', $cleanSeriesInt)->orWhere('series_id', (int) $cleanSeries);
+                    })
+                    ->where(function ($q) use ($cleanAccountInt, $cleanAccount) {
+                        $q->where('account_no', $cleanAccountInt)->orWhere('account_no', (int) $cleanAccount);
+                    })
+                    ->whereNotNull('cl_bal_withdrawl')
+                    ->get();
+
+                if ($rows->isNotEmpty()) {
+                    return $rows->map(function ($row) {
+                        $code = (int) $row->fin_year_code;
+                        $startYr = 1998 + $code;
+                        $finYearLabel = "$startYr-" . ($startYr + 1);
+                        return [
+                            'fin_year_code' => (string) $row->fin_year_code,
+                            'financial_year' => $finYearLabel,
+                            'closing_balance' => (float) $row->cl_bal_withdrawl,
+                            'opening_balance' => (float) $row->op_balance_withdrawl,
+                            'interest' => (float) $row->intr_withdrawl,
+                            'is_closed' => strtoupper(trim((string) ($row->account_closed_tag ?? ''))) === 'Y',
+                        ];
+                    });
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('getAvailableClosingBalances pgsql error: ' . $e->getMessage());
+        }
+
+        // Default fallback list of financial years
         return collect([
             ['fin_year_code' => '26', 'financial_year' => '2024-2025', 'closing_balance' => 0.0, 'opening_balance' => 0.0, 'interest' => 0.0, 'is_closed' => false],
             ['fin_year_code' => '25', 'financial_year' => '2023-2024', 'closing_balance' => 0.0, 'opening_balance' => 0.0, 'interest' => 0.0, 'is_closed' => false],
@@ -714,51 +730,116 @@ class OracleMasterBridge
     }
 
     /**
-     * Retrieve raw monthly vouchers from VLCS.GP_VOUCHER_ACC_DETAILS
+     * Retrieve raw monthly vouchers from VLCS.GP_VOUCHER_ACC_DETAILS aggregated by month
      */
     public function getVouchers(string $seriesCode, string $accountNo): array
     {
         $conn = $this->getConnection();
         $cleanAccount = preg_replace('/[^0-9]/', '', $accountNo);
         $cleanAccountInt = (int) $cleanAccount;
+        $cleanSeries = trim($seriesCode);
+        $cleanSeriesInt = (int) $cleanSeries;
         $vouchersByMonth = [];
 
         if ($conn) {
             try {
                 $this->validateTableAccess('GP_VOUCHER_ACC_DETAILS');
                 $stmt = oci_parse($conn, "
-                    SELECT TO_CHAR(a.PAY_SLIP_DATE, 'YYYY-MM') as CAL_MONTH,
-                           TO_CHAR(a.PAY_SLIP_DATE, 'YYYY-MM-DD') as PAY_SLIP_DATE,
-                           NVL(a.SUBSCRIPTION_AMT, 0) as SUBSCRIPTION_AMT,
-                           NVL(a.REFUND_AMT, 0) as REFUND_AMT,
-                           NVL(a.WITHDRAWAL_AMT, 0) as WITHDRAWAL_AMT,
-                           a.VOUCHER_NO, a.ABSTRACT_NO
-                    FROM VLCS.GP_VOUCHER_ACC_DETAILS a
-                    WHERE (a.ACCOUNT_NO = :acct_num OR TO_CHAR(a.ACCOUNT_NO) = :acct_str)
-                      AND a.POSTING_TYPE != 'F' AND a.TAG = 'Y'
-                    ORDER BY a.PAY_SLIP_DATE ASC
+                    SELECT 
+                        TO_CHAR(PAY_SLIP_DATE, 'YYYY-MM') AS CAL_MONTH,
+                        MAX(TO_CHAR(PAY_SLIP_DATE, 'YYYY-MM-DD')) AS PAY_SLIP_DATE,
+                        SUM(NVL(SUBSCRIPTION_AMT, 0) + NVL(REFUND_AMT, 0) + NVL(OTHERS_AMT, 0)) AS TOTAL_DEPOSIT,
+                        SUM(NVL(SUBSCRIPTION_AMT, 0)) AS TOTAL_SUBSCRIPTION,
+                        SUM(NVL(REFUND_AMT, 0)) AS TOTAL_REFUND,
+                        SUM(NVL(OTHERS_AMT, 0)) AS TOTAL_OTHERS,
+                        SUM(NVL(WITHDRAWAL_AMT, 0)) AS TOTAL_WITHDRAWAL,
+                        LISTAGG(VOUCHER_NO, ', ') WITHIN GROUP (ORDER BY VOUCHER_NO) AS VOUCHERS,
+                        LISTAGG(ABSTRACT_NO, ', ') WITHIN GROUP (ORDER BY ABSTRACT_NO) AS ABSTRACTS,
+                        COUNT(*) AS VOUCHER_COUNT
+                    FROM VLCS.GP_VOUCHER_ACC_DETAILS
+                    WHERE (SERIES_ID = :s_num OR TO_CHAR(SERIES_ID) = :s_str)
+                      AND (ACCOUNT_NO = :a_num OR TO_CHAR(ACCOUNT_NO) = :a_str)
+                      AND (TAG IS NULL OR TAG != 'D')
+                      AND (POSTING_TYPE IS NULL OR POSTING_TYPE != 'F')
+                    GROUP BY TO_CHAR(PAY_SLIP_DATE, 'YYYY-MM')
+                    ORDER BY CAL_MONTH ASC
                 ");
-                oci_bind_by_name($stmt, ':acct_num', $cleanAccountInt);
-                oci_bind_by_name($stmt, ':acct_str', $cleanAccount);
+                oci_bind_by_name($stmt, ':s_num', $cleanSeriesInt);
+                oci_bind_by_name($stmt, ':s_str', $cleanSeries);
+                oci_bind_by_name($stmt, ':a_num', $cleanAccountInt);
+                oci_bind_by_name($stmt, ':a_str', $cleanAccount);
 
                 if (@oci_execute($stmt)) {
                     while ($row = oci_fetch_assoc($stmt)) {
                         $m = $row['CAL_MONTH'];
                         $vouchersByMonth[$m] = [
-                            'deposit' => (float) ($row['SUBSCRIPTION_AMT'] + $row['REFUND_AMT']),
-                            'withdrawal' => (float) $row['WITHDRAWAL_AMT'],
-                            'subscription' => (float) $row['SUBSCRIPTION_AMT'],
-                            'refund' => (float) $row['REFUND_AMT'],
-                            'voucher_no' => $row['VOUCHER_NO'] ?? '',
-                            'abstract_no' => $row['ABSTRACT_NO'] ?? '',
+                            'deposit' => (float) $row['TOTAL_DEPOSIT'],
+                            'withdrawal' => (float) $row['TOTAL_WITHDRAWAL'],
+                            'subscription' => (float) $row['TOTAL_SUBSCRIPTION'],
+                            'refund' => (float) $row['TOTAL_REFUND'],
+                            'others' => (float) $row['TOTAL_OTHERS'],
+                            'voucher_no' => $row['VOUCHERS'] ?? '',
+                            'abstract_no' => $row['ABSTRACTS'] ?? '',
                             'pay_slip_date' => $row['PAY_SLIP_DATE'],
                         ];
                     }
                     oci_free_statement($stmt);
+                    if (!empty($vouchersByMonth)) {
+                        return $vouchersByMonth;
+                    }
                 }
             } catch (\Throwable $e) {
                 Log::warning('OracleMasterBridge::getVouchers error: ' . $e->getMessage());
             }
+        }
+
+        // Fallback to PostgreSQL 18 replica table (gpffp.vlcs_gp_voucher_acc_details)
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('vlcs_gp_voucher_acc_details')) {
+                $pgVouchers = \Illuminate\Support\Facades\DB::table('vlcs_gp_voucher_acc_details')
+                    ->selectRaw("
+                        TO_CHAR(pay_slip_date, 'YYYY-MM') as cal_month,
+                        MAX(TO_CHAR(pay_slip_date, 'YYYY-MM-DD')) as pay_slip_date,
+                        SUM(COALESCE(subscription_amt, 0) + COALESCE(refund_amt, 0) + COALESCE(others_amt, 0)) as total_deposit,
+                        SUM(COALESCE(subscription_amt, 0)) as total_subscription,
+                        SUM(COALESCE(refund_amt, 0)) as total_refund,
+                        SUM(COALESCE(others_amt, 0)) as total_others,
+                        SUM(COALESCE(withdrawal_amt, 0)) as total_withdrawal,
+                        STRING_AGG(voucher_no::text, ', ') as vouchers,
+                        STRING_AGG(abstract_no::text, ', ') as abstracts
+                    ")
+                    ->where(function ($q) use ($cleanSeriesInt, $cleanSeries) {
+                        $q->where('series_id', (string) $cleanSeriesInt)->orWhere('series_id', $cleanSeries);
+                    })
+                    ->where(function ($q) use ($cleanAccountInt, $cleanAccount) {
+                        $q->where('account_no', (string) $cleanAccountInt)->orWhere('account_no', $cleanAccount);
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('tag')->orWhere('tag', '!=', 'D');
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('posting_type')->orWhere('posting_type', '!=', 'F');
+                    })
+                    ->groupByRaw("TO_CHAR(pay_slip_date, 'YYYY-MM')")
+                    ->orderBy('cal_month', 'asc')
+                    ->get();
+
+                foreach ($pgVouchers as $row) {
+                    $m = $row->cal_month;
+                    $vouchersByMonth[$m] = [
+                        'deposit' => (float) $row->total_deposit,
+                        'withdrawal' => (float) $row->total_withdrawal,
+                        'subscription' => (float) $row->total_subscription,
+                        'refund' => (float) $row->total_refund,
+                        'others' => (float) $row->total_others,
+                        'voucher_no' => $row->vouchers ?? '',
+                        'abstract_no' => $row->abstracts ?? '',
+                        'pay_slip_date' => $row->pay_slip_date,
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('getVouchers pgsql fallback error: ' . $e->getMessage());
         }
 
         return $vouchersByMonth;
@@ -907,39 +988,44 @@ class OracleMasterBridge
     }
 
     /**
-     * Retrieve historic monthly subscriptions from Oracle 11g (gpffp.GPF_SUBSCRIPTION & VLCS tables)
+     * Retrieve individual monthly voucher transactions from VLCS.GP_VOUCHER_ACC_DETAILS
      */
-    public function getSubscriptions(string $seriesCode, string $accountNo, ?string $regdNo = null): array
+    public function getSubscriptions(string $seriesCode, string $accountNo): array
     {
         $conn = $this->getConnection();
         $cleanAccount = preg_replace('/[^0-9]/', '', $accountNo);
+        $cleanAccountInt = (int) $cleanAccount;
         $cleanSeries = trim($seriesCode);
+        $cleanSeriesInt = (int) $cleanSeries;
 
         if ($conn) {
             try {
-                $this->validateTableAccess('GPF_SUBSCRIPTION');
+                $this->validateTableAccess('GP_VOUCHER_ACC_DETAILS');
 
                 $query = "
                     SELECT 
-                        REGD_NO, SERIES_ID, ACCOUNT_NO, FIN_YEAR_CODE, 
-                        ABSTRACT_NO, VOUCHER_NO, PAY_SLIP_DATE, INTEREST_DATE, 
+                        SERIES_ID, ACCOUNT_NO, 
+                        ABSTRACT_NO, VOUCHER_NO, 
+                        TO_CHAR(PAY_SLIP_DATE, 'YYYY-MM-DD') AS PAY_SLIP_DATE, 
+                        TO_CHAR(NVL(INTEREST_DATE, PAY_SLIP_DATE), 'YYYY-MM-DD') AS INTEREST_DATE, 
                         NVL(SUBSCRIPTION_AMT, 0) AS SUBSCRIPTION_AMT, 
                         NVL(REFUND_AMT, 0) AS REFUND_AMT, 
                         NVL(WITHDRAWAL_AMT, 0) AS WITHDRAWAL_AMT, 
-                        NVL(ADVANCE_AMT, 0) AS ADVANCE_AMT, 
                         NVL(OTHERS_AMT, 0) AS OTHERS_AMT,
-                        NVL(ADJUSTMENT_NO, '0') AS ADJUSTMENT_NO,
-                        INT_ALLOW
-                    FROM gpffp.GPF_SUBSCRIPTION
-                    WHERE (REGD_NO = :regd OR (TRIM(ACCOUNT_NO) = :acct AND SERIES_ID = :series))
+                        ADJUSTMENT_NO, POSTING_TYPE, TAG
+                    FROM VLCS.GP_VOUCHER_ACC_DETAILS
+                    WHERE (SERIES_ID = :s_num OR TO_CHAR(SERIES_ID) = :s_str)
+                      AND (ACCOUNT_NO = :a_num OR TO_CHAR(ACCOUNT_NO) = :a_str)
+                      AND (TAG IS NULL OR TAG != 'D')
+                      AND (POSTING_TYPE IS NULL OR POSTING_TYPE != 'F')
                     ORDER BY PAY_SLIP_DATE ASC, INTEREST_DATE ASC
                 ";
 
                 $stmt = oci_parse($conn, $query);
-                $regdParam = $regdNo ?: '0';
-                oci_bind_by_name($stmt, ':regd', $regdParam);
-                oci_bind_by_name($stmt, ':acct', $cleanAccount);
-                oci_bind_by_name($stmt, ':series', $cleanSeries);
+                oci_bind_by_name($stmt, ':s_num', $cleanSeriesInt);
+                oci_bind_by_name($stmt, ':s_str', $cleanSeries);
+                oci_bind_by_name($stmt, ':a_num', $cleanAccountInt);
+                oci_bind_by_name($stmt, ':a_str', $cleanAccount);
 
                 if (@oci_execute($stmt)) {
                     $rows = [];
@@ -948,22 +1034,26 @@ class OracleMasterBridge
                         $refAmt = (float) ($row['REFUND_AMT'] ?? 0);
                         $othAmt = (float) ($row['OTHERS_AMT'] ?? 0);
                         $wthAmt = (float) ($row['WITHDRAWAL_AMT'] ?? 0);
-                        $advAmt = (float) ($row['ADVANCE_AMT'] ?? 0);
+
+                        $slipDate = $row['PAY_SLIP_DATE'];
+                        $m = $slipDate ? (int) substr($slipDate, 5, 2) : 1;
+                        $y = $slipDate ? (int) substr($slipDate, 0, 4) : 2024;
+                        $finYear = ($m >= 4) ? "$y-" . ($y + 1) : ($y - 1) . "-$y";
 
                         $rows[] = [
-                            'financial_year' => $row['FIN_YEAR_CODE'],
-                            'pay_slip_date' => $row['PAY_SLIP_DATE'],
-                            'interest_date' => $row['INTEREST_DATE'] ?? $row['PAY_SLIP_DATE'],
+                            'financial_year' => $finYear,
+                            'pay_slip_date' => $slipDate,
+                            'interest_date' => $row['INTEREST_DATE'] ?? $slipDate,
                             'deposit' => $subAmt + $refAmt + $othAmt,
                             'subscription' => $subAmt,
                             'refund' => $refAmt,
                             'others' => $othAmt,
-                            'withdrawal' => $wthAmt + $advAmt,
-                            'advance' => $advAmt,
+                            'withdrawal' => $wthAmt,
+                            'advance' => 0.00,
                             'voucher_no' => $row['VOUCHER_NO'] ?? '',
                             'abstract_no' => $row['ABSTRACT_NO'] ?? '',
-                            'adjustment_no' => ($row['ADJUSTMENT_NO'] !== '0') ? $row['ADJUSTMENT_NO'] : null,
-                            'interest_allowed' => ($row['INT_ALLOW'] !== 'N'),
+                            'adjustment_no' => $row['ADJUSTMENT_NO'] ?? null,
+                            'interest_allowed' => true,
                         ];
                     }
                     oci_free_statement($stmt);
@@ -976,38 +1066,50 @@ class OracleMasterBridge
             }
         }
 
-        // Fallback to PostgreSQL 18 replica table
+        // Fallback to PostgreSQL 18 replica table (vlcs_gp_voucher_acc_details)
         try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('gpffp_gpf_subscription')) {
-                $q = \Illuminate\Support\Facades\DB::table('gpffp_gpf_subscription');
-                if ($regdNo) {
-                    $q->where('regd_no', $regdNo);
-                } else {
-                    $q->where('account_no', $cleanAccount)->where('series_id', $cleanSeries);
-                }
-                $pgSubs = $q->orderBy('pay_slip_date', 'asc')->get();
+            if (\Illuminate\Support\Facades\Schema::hasTable('vlcs_gp_voucher_acc_details')) {
+                $pgSubs = \Illuminate\Support\Facades\DB::table('vlcs_gp_voucher_acc_details')
+                    ->where(function ($q) use ($cleanSeriesInt, $cleanSeries) {
+                        $q->where('series_id', (string) $cleanSeriesInt)->orWhere('series_id', $cleanSeries);
+                    })
+                    ->where(function ($q) use ($cleanAccountInt, $cleanAccount) {
+                        $q->where('account_no', (string) $cleanAccountInt)->orWhere('account_no', $cleanAccount);
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('tag')->orWhere('tag', '!=', 'D');
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('posting_type')->orWhere('posting_type', '!=', 'F');
+                    })
+                    ->orderBy('pay_slip_date', 'asc')
+                    ->get();
 
                 return $pgSubs->map(function ($row) {
                     $subAmt = (float) ($row->subscription_amt ?? 0);
                     $refAmt = (float) ($row->refund_amt ?? 0);
                     $othAmt = (float) ($row->others_amt ?? 0);
                     $wthAmt = (float) ($row->withdrawal_amt ?? 0);
-                    $advAmt = (float) ($row->advance_amt ?? 0);
+
+                    $slipDate = $row->pay_slip_date;
+                    $m = $slipDate ? (int) substr($slipDate, 5, 2) : 1;
+                    $y = $slipDate ? (int) substr($slipDate, 0, 4) : 2024;
+                    $finYear = ($m >= 4) ? "$y-" . ($y + 1) : ($y - 1) . "-$y";
 
                     return [
-                        'financial_year' => $row->fin_year_code,
-                        'pay_slip_date' => $row->pay_slip_date,
-                        'interest_date' => $row->interest_date ?? $row->pay_slip_date,
+                        'financial_year' => $finYear,
+                        'pay_slip_date' => $slipDate,
+                        'interest_date' => $row->interest_date ?? $slipDate,
                         'deposit' => $subAmt + $refAmt + $othAmt,
                         'subscription' => $subAmt,
                         'refund' => $refAmt,
                         'others' => $othAmt,
-                        'withdrawal' => $wthAmt + $advAmt,
-                        'advance' => $advAmt,
+                        'withdrawal' => $wthAmt,
+                        'advance' => 0.00,
                         'voucher_no' => $row->voucher_no ?? '',
                         'abstract_no' => $row->abstract_no ?? '',
-                        'adjustment_no' => ($row->adjustment_no !== '0') ? $row->adjustment_no : null,
-                        'interest_allowed' => ($row->int_allow !== 'N'),
+                        'adjustment_no' => $row->adjustment_no ?? null,
+                        'interest_allowed' => true,
                     ];
                 })->all();
             }

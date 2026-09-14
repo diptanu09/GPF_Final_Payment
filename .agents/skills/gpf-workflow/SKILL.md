@@ -16,7 +16,7 @@ This skill provides complete testing procedures, workflow verification steps, an
 
 Run unit and feature tests across the entire GPF pipeline:
 
-### Run All 33 Automated Tests
+### Run All 47 Automated Tests
 ```powershell
 php vendor/phpunit/phpunit/phpunit --testdox
 ```
@@ -28,6 +28,9 @@ php vendor/phpunit/phpunit/phpunit tests/Feature/GpfWorkflowFeatureTest.php --te
 
 # Test HTTP endpoints, role authorizations, authority prints, and subscriber lookups
 php vendor/phpunit/phpunit/phpunit tests/Feature/GpfControllersFeatureTest.php --testdox
+
+# Test VLC voucher aggregation, master dropdowns, and base closing balances
+php vendor/phpunit/phpunit/phpunit tests/Unit/OracleMasterBridgeTest.php --testdox
 
 # Test interest calculation engine, progressive balance math, delayed interest, and DLIS
 php vendor/phpunit/phpunit/phpunit tests/Unit/GpfCalculationEngineTest.php --testdox
@@ -49,8 +52,8 @@ php vendor/phpunit/phpunit/phpunit tests/Unit/PkiSignatureVerifierTest.php --tes
 | Step | State | Role | Controller / Service | Verification Point |
 | :--- | :--- | :--- | :--- | :--- |
 | 1 | `DRAFT` | `deo` (`deeksha`/`kalipada`) | `InwardCaseController@store` | Demographic lookup from `VLCS.GP_APPLICATIONS` & `VLCS.STATE_DDO`. |
-| 2 | `CALCULATED` | `deo` | `CalculationController@calculate` | Multi-year ledger, Base FY from VLC, Cut month suppression, Delayed interest computed with `GpfCalculationEngine`. |
-| 3 | `CHECKED` | `checker` (`anjana`) | `ApprovalController@check` | AAO verifies ledger, missing credits, and DLIS eligibility. |
+| 2 | `CALCULATED` | `deo` | `CalculationController@store` | Multi-year ledger, Base FY from `VLCS.GP_YEARLY_BALANCES`, monthly deposits/withdrawals from `VLCS.GP_VOUCHER_ACC_DETAILS`, Cut month suppression, Delayed interest computed with `GpfCalculationEngine`. |
+| 3 | `CHECKED` | `checker` (`anjana`) | `ApprovalController@check` | AAO verifies ledger, missing credits (`VLCS.GP_MISSING_CREDIT`), and DLIS eligibility. |
 | 4 | `APPROVED` | `approver` (`rkdb`) | `ApprovalController@approve` | Sr. AO sanctions settlement amount. |
 | 5 | `AUTHORIZED` | `approver` (`rkdb`) | `AuthorityController@sign` | Statutory Authority letter generated & signed with PKI digital signature. |
 | 6 | `HRMS_SYNCED`| System / `approver` | `DispatchController@syncHrms` | XML/JSON payload dispatched to HRMS API. |
@@ -62,11 +65,33 @@ php vendor/phpunit/phpunit/phpunit tests/Unit/PkiSignatureVerifierTest.php --tes
 ## 3. Database Health & Fallback Validation
 
 ### Checking Dual-Database Connections
-- **Oracle 11g Master**: `192.168.100.247:1521/db11g` (Schemas: `gpffp`, `VLCS`) handled via `OracleMasterBridge.php`.
-- **PostgreSQL 18 Primary Storage**: `10.47.240.169:5432/gpf_final_payment`.
+- **Oracle 11g Master (VLC Data)**: `192.168.100.247:1521/db11g` (Schema: `VLCS` only) handled via `OracleMasterBridge.php`.
+- **PostgreSQL 18 Primary Storage & Replica**: `10.47.240.169:5432/gpf_final_payment` (Schema: `gpffp`).
+
+### Monthly Voucher Aggregation Query
+```sql
+SELECT 
+    TO_CHAR(PAY_SLIP_DATE, 'YYYY-MM') AS CAL_MONTH,
+    MAX(TO_CHAR(PAY_SLIP_DATE, 'YYYY-MM-DD')) AS PAY_SLIP_DATE,
+    SUM(NVL(SUBSCRIPTION_AMT, 0) + NVL(REFUND_AMT, 0) + NVL(OTHERS_AMT, 0)) AS TOTAL_DEPOSIT,
+    SUM(NVL(SUBSCRIPTION_AMT, 0)) AS TOTAL_SUBSCRIPTION,
+    SUM(NVL(REFUND_AMT, 0)) AS TOTAL_REFUND,
+    SUM(NVL(OTHERS_AMT, 0)) AS TOTAL_OTHERS,
+    SUM(NVL(WITHDRAWAL_AMT, 0)) AS TOTAL_WITHDRAWAL,
+    LISTAGG(VOUCHER_NO, ', ') WITHIN GROUP (ORDER BY VOUCHER_NO) AS VOUCHERS,
+    LISTAGG(ABSTRACT_NO, ', ') WITHIN GROUP (ORDER BY ABSTRACT_NO) AS ABSTRACTS,
+    COUNT(*) AS VOUCHER_COUNT
+FROM VLCS.GP_VOUCHER_ACC_DETAILS
+WHERE (SERIES_ID = :s_num OR TO_CHAR(SERIES_ID) = :s_str)
+  AND (ACCOUNT_NO = :a_num OR TO_CHAR(ACCOUNT_NO) = :a_str)
+  AND (TAG IS NULL OR TAG != 'D')
+  AND (POSTING_TYPE IS NULL OR POSTING_TYPE != 'F')
+GROUP BY TO_CHAR(PAY_SLIP_DATE, 'YYYY-MM')
+ORDER BY CAL_MONTH ASC
+```
 
 ### Offline / Fallback Testing
-When Oracle 11g host is unreachable or when running automated CI tests, `OracleMasterBridge::lookupSubscriber` automatically queries the PostgreSQL replica tables (`gp_accounts`, `gp_applications`, `gp_yearly_balances`, etc.).
+When Oracle 11g host is unreachable or when running automated CI tests, `OracleMasterBridge` automatically queries the PostgreSQL replica tables (`vlcs_gp_accounts`, `vlcs_gp_applications`, `vlcs_gp_yearly_balances`, `vlcs_gp_voucher_acc_details`, `vlcs_gp_missing_credit`, etc.).
 
 ---
 
