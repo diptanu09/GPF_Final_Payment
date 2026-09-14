@@ -243,3 +243,43 @@ npm.cmd run build
 # Run automated test suite:
 php vendor/phpunit/phpunit/phpunit --testdox
 ```
+
+---
+
+## 11. Docker Architecture, Oracle 19c Client & Container Operations
+
+### A. Container Architecture & Dependencies
+- **Base Image**: `php:8.3-fpm-bookworm` (Debian 12 Bookworm).
+- **Oracle Instant Client Version**: **Oracle Instant Client 19c (19.24 LTS)**.
+  - *Critical Rule*: Do NOT use Oracle 21c Instant Client. Oracle 21c rejects connections to Oracle 11g Enterprise with `ORA-28040: No matching authentication protocol`.
+- **Legacy Authentication Configuration (`sqlnet.ora`)**:
+  - Located at `/usr/lib/oracle/current/network/admin/sqlnet.ora` (`ENV TNS_ADMIN=/usr/lib/oracle/current/network/admin`).
+  - Required parameters:
+    ```text
+    SQLNET.ALLOWED_LOGON_VERSION_CLIENT=8
+    SQLNET.ALLOWED_LOGON_VERSION_SERVER=8
+    ```
+- **PHP Compilation Dependencies**:
+  - Requires `$PHPIZE_DEPS` and `build-essential` in `apt-get` to compile `oci8-3.4.0` via PECL and `pdo_oci` via `docker-php-ext-install`.
+  - Both `oci8` and `pdo_oci` are validated during image build:
+    `RUN php -m | grep -q oci8 && php -m | grep -q pdo_oci`.
+- **Virtual NAT & Socket Resilience**:
+  - Set `ORACLE_PROBE_TIMEOUT=3.0` (or higher) to prevent false-negative connection dropouts when container traffic traverses Docker bridge / WSL2 virtual NAT.
+
+### B. Common Docker Operations
+```powershell
+# Build and launch production container:
+docker compose up -d --build
+
+# View container logs:
+docker compose logs -f app
+
+# Clear and rebuild cache inside container:
+docker compose exec app php artisan optimize:clear
+docker compose exec app php artisan config:cache
+docker compose exec app php artisan route:cache
+
+# Check live remote container diagnostics:
+Invoke-RestMethod -Uri "http://10.47.240.169/api/v1/system/status" -Headers @{ "X-Deploy-Token" = "GPF_DEPLOY_SECRET_TOKEN_2026" }
+```
+

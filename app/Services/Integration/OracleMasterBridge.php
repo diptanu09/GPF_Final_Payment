@@ -42,7 +42,7 @@ class OracleMasterBridge
         }
 
         if (!function_exists('oci_pconnect') && !function_exists('oci_connect')) {
-            Log::warning('OracleMasterBridge: OCI8 extension is not loaded.');
+            Log::warning('OracleMasterBridge: OCI8 PHP extension is not loaded. Cannot connect to Oracle 11g.');
             return null;
         }
 
@@ -52,8 +52,8 @@ class OracleMasterBridge
         $user = config('database.connections.oracle_legacy.username', 'gpffp');
         $pass = config('database.connections.oracle_legacy.password', 'gpffp');
 
-        // Fast probe to avoid locking the PHP worker thread if the host is down or unreachable
-        $probeTimeout = (float) env('ORACLE_PROBE_TIMEOUT', 1.5);
+        // Fast probe to avoid locking the PHP worker thread if the host is down or unreachable (default 3.0s for container NAT resilience)
+        $probeTimeout = (float) env('ORACLE_PROBE_TIMEOUT', 3.0);
         $socket = @fsockopen($host, $port, $errno, $errstr, $probeTimeout);
         if (!$socket) {
             Log::info("OracleMasterBridge: Oracle server {$host}:{$port} is currently unreachable ({$errstr}). Operating in PostgreSQL replica fallback mode.");
@@ -61,7 +61,7 @@ class OracleMasterBridge
         }
         fclose($socket);
 
-        $tns = "(DESCRIPTION=(CONNECT_TIMEOUT=2)(TRANSPORT_CONNECT_TIMEOUT=2)(RETRY_COUNT=0)(ADDRESS=(PROTOCOL=TCP)(HOST={$host})(PORT={$port}))(CONNECT_DATA=(SID={$sid})))";
+        $tns = "(DESCRIPTION=(CONNECT_TIMEOUT=3)(TRANSPORT_CONNECT_TIMEOUT=3)(RETRY_COUNT=1)(ADDRESS=(PROTOCOL=TCP)(HOST={$host})(PORT={$port}))(CONNECT_DATA=(SID={$sid})))";
 
         $conn = @oci_pconnect($user, $pass, $tns, 'AL32UTF8');
         if (!$conn) {
@@ -70,12 +70,62 @@ class OracleMasterBridge
 
         if (!$conn) {
             $e = oci_error();
-            Log::error('OracleMasterBridge: Oracle connection failed.', ['error' => $e['message'] ?? 'Unknown error']);
+            Log::error('OracleMasterBridge: Oracle connection failed.', ['error' => $e['message'] ?? 'Unknown error', 'host' => $host, 'port' => $port, 'sid' => $sid]);
             return null;
         }
 
         $this->connection = $conn;
         return $this->connection;
+    }
+
+    /**
+     * Get detailed status of Oracle 11g connection and extension health
+     */
+    public function getConnectionStatus(): array
+    {
+        $oci8Loaded = function_exists('oci_connect');
+        $pdoOciLoaded = extension_loaded('pdo_oci');
+        $host = config('database.connections.oracle_legacy.host', '192.168.100.247');
+        $port = (int) config('database.connections.oracle_legacy.port', 1521);
+        $sid = config('database.connections.oracle_legacy.database', 'db11g');
+
+        if (!$oci8Loaded) {
+            return [
+                'connected' => false,
+                'status' => 'OCI8 PHP extension not loaded in runtime',
+                'oci8_loaded' => false,
+                'pdo_oci_loaded' => $pdoOciLoaded,
+                'host' => $host,
+                'port' => $port,
+                'sid' => $sid,
+            ];
+        }
+
+        $probeTimeout = (float) env('ORACLE_PROBE_TIMEOUT', 3.0);
+        $socket = @fsockopen($host, $port, $errno, $errstr, $probeTimeout);
+        if (!$socket) {
+            return [
+                'connected' => false,
+                'status' => "Host {$host}:{$port} unreachable ({$errstr})",
+                'oci8_loaded' => true,
+                'pdo_oci_loaded' => $pdoOciLoaded,
+                'host' => $host,
+                'port' => $port,
+                'sid' => $sid,
+            ];
+        }
+        fclose($socket);
+
+        $conn = $this->getConnection();
+        return [
+            'connected' => (bool) $conn,
+            'status' => $conn ? 'Connected to Oracle 11g (VLCS)' : 'Authentication / TNS error',
+            'oci8_loaded' => true,
+            'pdo_oci_loaded' => $pdoOciLoaded,
+            'host' => $host,
+            'port' => $port,
+            'sid' => $sid,
+        ];
     }
 
     /**
@@ -667,6 +717,7 @@ class OracleMasterBridge
                     }
                     oci_free_statement($stmt);
                     if (!empty($balances)) {
+                        Log::info("OracleMasterBridge: Fetched " . count($balances) . " closing balance records from Oracle 11g for Series {$cleanSeries}, Acct {$cleanAccount}");
                         return collect($balances);
                     }
                 }
@@ -686,6 +737,7 @@ class OracleMasterBridge
                     ->get();
 
                 if ($rows->isNotEmpty()) {
+                    Log::info("OracleMasterBridge: Fetched " . $rows->count() . " closing balance records from PostgreSQL replica for Series {$cleanSeries}, Acct {$cleanAccount}");
                     return $rows->map(function ($row) {
                         $code = (int) $row->fin_year_code;
                         $startYr = 1998 + $code;
@@ -704,6 +756,8 @@ class OracleMasterBridge
         } catch (\Throwable $e) {
             Log::warning('getAvailableClosingBalances pgsql error: ' . $e->getMessage());
         }
+
+        Log::warning("OracleMasterBridge: Both Oracle 11g and PostgreSQL replica yielded 0 balance records for Series {$cleanSeries}, Acct {$cleanAccount}. Returning default fallback FYs with zero balance.");
 
         // Default fallback list of financial years
         return collect([

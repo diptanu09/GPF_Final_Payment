@@ -13,6 +13,8 @@ services:
       - APP_ENV=${APP_ENV:-production}
       - APP_DEBUG=${APP_DEBUG:-false}
       - RUN_MIGRATIONS=${RUN_MIGRATIONS:-true}
+      - TNS_ADMIN=/usr/lib/oracle/current/network/admin
+      - ORACLE_PROBE_TIMEOUT=${ORACLE_PROBE_TIMEOUT:-3.0}
     env_file:
       - .env
     volumes:

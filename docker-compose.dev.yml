@@ -14,6 +14,8 @@ services:
       - APP_ENV=local
       - APP_DEBUG=true
       - RUN_MIGRATIONS=false
+      - TNS_ADMIN=/usr/lib/oracle/current/network/admin
+      - ORACLE_PROBE_TIMEOUT=${ORACLE_PROBE_TIMEOUT:-3.0}
     env_file:
       - .env
     volumes:

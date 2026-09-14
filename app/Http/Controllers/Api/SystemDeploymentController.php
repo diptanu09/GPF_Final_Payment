@@ -65,6 +65,9 @@ class SystemDeploymentController extends Controller
             $dbStatus = 'error: ' . $e->getMessage();
         }
 
+        $oracleBridge = app(\App\Services\Integration\OracleMasterBridge::class);
+        $oracleStatus = $oracleBridge->getConnectionStatus();
+
         return response()->json([
             'success' => true,
             'environment' => app()->environment(),
@@ -74,6 +77,17 @@ class SystemDeploymentController extends Controller
             'git_commit' => $gitCommit,
             'git_commit_date' => $gitCommitDate,
             'database' => $dbStatus,
+            'oracle' => $oracleStatus,
+            'extensions' => [
+                'oci8' => function_exists('oci_connect'),
+                'pdo_oci' => extension_loaded('pdo_oci'),
+                'pgsql' => extension_loaded('pgsql'),
+                'pdo_pgsql' => extension_loaded('pdo_pgsql'),
+                'bcmath' => extension_loaded('bcmath'),
+                'gd' => extension_loaded('gd'),
+                'zip' => extension_loaded('zip'),
+                'intl' => extension_loaded('intl'),
+            ],
             'server_time' => now()->toIso8601String(),
             'hostname' => gethostname(),
         ]);

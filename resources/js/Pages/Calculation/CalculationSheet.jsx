@@ -440,15 +440,28 @@ export default function CalculationSheet({
                                 <Building2 className="w-5 h-5" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                <h3 className="text-sm font-bold text-white flex flex-wrap items-center gap-2">
                                     <span>Base Financial Year & VLC Closing Balance</span>
-                                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                                        Direct from VLCS.GP_YEARLY_BALANCES
-                                    </span>
+                                    {available_base_years && available_base_years.some(b => Number(b.closing_balance) > 0) ? (
+                                        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+                                            ✓ Direct from VLCS.GP_YEARLY_BALANCES ({available_base_years.length} FYs)
+                                        </span>
+                                    ) : (
+                                        <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono flex items-center gap-1">
+                                            <AlertTriangle className="w-3 h-3" />
+                                            <span>Offline Fallback / 0 Closing Balance</span>
+                                        </span>
+                                    )}
                                 </h3>
                                 <p className="text-xs text-slate-400">
                                     Select the base financial year to automatically fetch the audited closing balance from VLC.
                                 </p>
+                                {available_base_years && !available_base_years.some(b => Number(b.closing_balance) > 0) && (
+                                    <p className="text-[11px] text-amber-400/90 mt-1 flex items-center gap-1">
+                                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                        <span>No non-zero closing balance returned from VLC. You can manually enter the subscriber's Opening Balance below.</span>
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -483,7 +496,12 @@ export default function CalculationSheet({
                                     step="0.01"
                                     value={openingBal}
                                     onChange={(e) => setOpeningBal(parseFloat(e.target.value) || 0)}
-                                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-100 font-mono font-bold focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                    placeholder="0.00"
+                                    className={`w-full px-3 py-2 bg-slate-900 border rounded-xl text-xs text-slate-100 font-mono font-bold focus:ring-1 ${
+                                        Number(openingBal) === 0
+                                            ? 'border-amber-500/50 focus:border-amber-500 focus:ring-amber-500'
+                                            : 'border-slate-700 focus:border-indigo-500 focus:ring-indigo-500'
+                                    }`}
                                 />
                             </div>
 

@@ -28,10 +28,13 @@ WORKDIR /var/www/html
 ENV DEBIAN_FRONTEND=noninteractive \
     COMPOSER_ALLOW_SUPERUSER=1 \
     LD_LIBRARY_PATH=/usr/lib/oracle/current \
-    ORACLE_HOME=/usr/lib/oracle/current
+    ORACLE_HOME=/usr/lib/oracle/current \
+    TNS_ADMIN=/usr/lib/oracle/current/network/admin
 
-# Install system dependencies & build tools
+# Install system dependencies & build tools (including $PHPIZE_DEPS for PECL compilation)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    $PHPIZE_DEPS \
+    build-essential \
     nginx \
     supervisor \
     curl \
@@ -50,20 +53,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libaio-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Oracle Instant Client for OCI8 & PDO_OCI (Oracle 11g / 19c connection)
-RUN mkdir -p /opt/oracle && cd /opt/oracle \
-    && curl -sS -o instantclient-basic.zip https://download.oracle.com/otn_software/linux/instantclient/2113000/instantclient-basiclite-linux.x64-21.13.0.0.0dbru.zip \
-    && curl -sS -o instantclient-sdk.zip https://download.oracle.com/otn_software/linux/instantclient/2113000/instantclient-sdk-linux.x64-21.13.0.0.0dbru.zip \
+# Install Oracle Instant Client 19c (19.24 LTS) for full compatibility with Oracle 11g Enterprise
+RUN mkdir -p /opt/oracle /usr/lib/oracle/current/network/admin && cd /opt/oracle \
+    && curl -fSL -o instantclient-basic.zip https://download.oracle.com/otn_software/linux/instantclient/1924000/instantclient-basiclite-linux.x64-19.24.0.0.0dbru.zip \
+    && curl -fSL -o instantclient-sdk.zip https://download.oracle.com/otn_software/linux/instantclient/1924000/instantclient-sdk-linux.x64-19.24.0.0.0dbru.zip \
     && unzip -q instantclient-basic.zip \
     && unzip -q instantclient-sdk.zip \
     && rm -f instantclient-basic.zip instantclient-sdk.zip \
-    && mv instantclient_21_13 /usr/lib/oracle/current \
+    && mv instantclient_*/* /usr/lib/oracle/current/ \
+    && rmdir instantclient_* \
+    && ln -sf /usr/lib/oracle/current/libclntsh.so.* /usr/lib/oracle/current/libclntsh.so \
+    && ln -sf /usr/lib/oracle/current/libocci.so.* /usr/lib/oracle/current/libocci.so \
     && echo /usr/lib/oracle/current > /etc/ld.so.conf.d/oracle-instantclient.conf \
     && ldconfig \
-    || true
+    && printf "SQLNET.ALLOWED_LOGON_VERSION_CLIENT=8\nSQLNET.ALLOWED_LOGON_VERSION_SERVER=8\n" > /usr/lib/oracle/current/network/admin/sqlnet.ora
 
-# Configure & Install PHP Extensions
+# Configure & Install PHP Extensions (including OCI8 and PDO_OCI)
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-configure pdo_oci --with-pdo-oci=instantclient,/usr/lib/oracle/current \
     && docker-php-ext-install -j$(nproc) \
     pdo_pgsql \
     pgsql \
@@ -73,13 +80,13 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     zip \
     intl \
     opcache \
-    pcntl
-
-# Install & Configure OCI8 if instantclient library exists
-RUN if [ -d "/usr/lib/oracle/current" ]; then \
-    echo 'instantclient,/usr/lib/oracle/current' | pecl install oci8-3.4.0 \
-    && docker-php-ext-enable oci8; \
-    fi
+    pcntl \
+    pdo_oci \
+    && echo 'instantclient,/usr/lib/oracle/current' | pecl install oci8-3.4.0 \
+    && docker-php-ext-enable oci8 \
+    && php -m | grep -q oci8 \
+    && php -m | grep -q pdo_oci \
+    && echo "=== Oracle OCI8 and PDO_OCI extensions verified successfully ==="
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer

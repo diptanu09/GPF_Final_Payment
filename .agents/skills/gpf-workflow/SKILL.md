@@ -120,7 +120,7 @@ php vendor/phpunit/phpunit/phpunit --testdox
 ## 6. Remote Docker Deployment & Maintenance (`10.47.240.169`)
 
 ### 1-Click Remote Deployment
-To deploy code updates, run migrations, and refresh caches on the remote Docker host `10.47.240.169` without physical access:
+To deploy code updates, run migrations, and refresh caches on the remote Docker host `10.47.240.169`:
 
 ```powershell
 # Run the automated deployment script:
@@ -130,10 +130,32 @@ To deploy code updates, run migrations, and refresh caches on the remote Docker 
 powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1 -CommitMsg "Your update message"
 ```
 
-### Remote Health Check & Status Endpoint
+### Rebuilding the Docker Container on Remote Server
+When `Dockerfile`, PHP extensions (`oci8`, `pdo_oci`), or system dependencies change:
 ```powershell
-curl.exe -H "X-Deploy-Token: GPF_DEPLOY_SECRET_TOKEN_2026" http://10.47.240.169/api/v1/system/status
+# Rebuild container without cache:
+docker compose build --no-cache
+docker compose up -d --force-recreate
 ```
+
+### Remote Health Check & Status Endpoint
+Check container status, PHP version, loaded extensions, and live Oracle connection:
+```powershell
+Invoke-RestMethod -Uri "http://10.47.240.169/api/v1/system/status" -Headers @{ "X-Deploy-Token" = "GPF_DEPLOY_SECRET_TOKEN_2026" }
+```
+Expected output includes:
+- `database`: `connected (pgsql)`
+- `oracle`: `{ connected: true, status: "Connected to Oracle 11g (VLCS)", oci8_loaded: true, pdo_oci_loaded: true }`
+- `extensions`: `{ oci8: true, pdo_oci: true, pgsql: true, pdo_pgsql: true }`
+
+### Troubleshooting Missing Closing Balances / 3-Year Fallback in Docker
+If the Calculation page in Docker shows only 3 financial years (`2024-2025`, `2023-2024`, `2022-2023`) and Opening Balance 0:
+1. Check `/api/v1/system/status` to verify `oci8_loaded` is `true` and `oracle.connected` is `true`.
+2. If `oci8` is false, ensure Docker was built using **Oracle Instant Client 19c (19.24 LTS)** with `$PHPIZE_DEPS`. (Oracle 21c is NOT compatible with Oracle 11g).
+3. If `oracle.status` says `unreachable`, check network route from Docker host `10.47.240.169` to Oracle host `192.168.100.247:1521` or increase `ORACLE_PROBE_TIMEOUT=3.0` in `.env`.
+4. Ensure `/usr/lib/oracle/current/network/admin/sqlnet.ora` contains:
+   `SQLNET.ALLOWED_LOGON_VERSION_CLIENT=8`
+   `SQLNET.ALLOWED_LOGON_VERSION_SERVER=8`
 
 ### Browser Access Notes
 - **Direct IP**: `http://10.47.240.169` or `https://10.47.240.169`
@@ -141,4 +163,5 @@ curl.exe -H "X-Deploy-Token: GPF_DEPLOY_SECRET_TOKEN_2026" http://10.47.240.169/
 - **Edge/Chrome "Can't reach this page" or Untrusted SSL**:
   - In Chrome / Edge on the error page, type `thisisunsafe` to bypass self-signed certificate warnings.
   - Or install `docker/ssl/server.crt` into Windows "Trusted Root Certification Authorities".
+
 
