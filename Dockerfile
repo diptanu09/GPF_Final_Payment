@@ -62,8 +62,9 @@ RUN mkdir -p /opt/oracle /usr/lib/oracle && cd /opt/oracle \
     && rm -f instantclient-basic.zip instantclient-sdk.zip \
     && mv instantclient_* /usr/lib/oracle/current \
     && mkdir -p /usr/lib/oracle/current/network/admin \
-    && ln -sf /usr/lib/oracle/current/libclntsh.so.* /usr/lib/oracle/current/libclntsh.so \
-    && ln -sf /usr/lib/oracle/current/libocci.so.* /usr/lib/oracle/current/libocci.so \
+    && ln -sf /usr/lib/oracle/current/libclntsh.so.19.1 /usr/lib/oracle/current/libclntsh.so \
+    && ln -sf /usr/lib/oracle/current/libocci.so.19.1 /usr/lib/oracle/current/libocci.so \
+    && ln -sf /usr/lib/oracle/current/sdk/include /usr/lib/oracle/current/include \
     && echo /usr/lib/oracle/current > /etc/ld.so.conf.d/oracle-instantclient.conf \
     && ldconfig \
     && printf "SQLNET.ALLOWED_LOGON_VERSION_CLIENT=8\nSQLNET.ALLOWED_LOGON_VERSION_SERVER=8\n" > /usr/lib/oracle/current/network/admin/sqlnet.ora \
@@ -71,7 +72,7 @@ RUN mkdir -p /opt/oracle /usr/lib/oracle && cd /opt/oracle \
 
 # Configure & Install PHP Extensions (including OCI8 and PDO_OCI)
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-configure pdo_oci --with-pdo-oci=instantclient,/usr/lib/oracle/current \
+    && docker-php-ext-configure pdo_oci --with-pdo-oci=instantclient,/usr/lib/oracle/current,19.1 \
     && docker-php-ext-install -j$(nproc) \
     pdo_pgsql \
     pgsql \
