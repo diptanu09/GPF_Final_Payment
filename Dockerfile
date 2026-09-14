@@ -8,9 +8,11 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 
+# Cache package installation
 COPY package*.json ./
 RUN npm ci --silent || npm install --silent
 
+# Build production frontend assets
 COPY . .
 RUN npm run build
 
@@ -25,8 +27,8 @@ WORKDIR /var/www/html
 # Environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
     COMPOSER_ALLOW_SUPERUSER=1 \
-    LD_LIBRARY_PATH=/usr/lib/oracle/current/client64/lib \
-    ORACLE_HOME=/usr/lib/oracle/current/client64
+    LD_LIBRARY_PATH=/usr/lib/oracle/current \
+    ORACLE_HOME=/usr/lib/oracle/current
 
 # Install system dependencies & build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -35,7 +37,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     unzip \
     git \
+    openssl \
+    ca-certificates \
     libpq-dev \
+    libsqlite3-dev \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
@@ -43,15 +48,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libicu-dev \
     libaio1 \
     libaio-dev \
-    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Oracle Instant Client for OCI8 & PDO_OCI (Oracle 11g / 19c connection)
 RUN mkdir -p /opt/oracle && cd /opt/oracle \
-    && curl -o instantclient-basic.zip https://download.oracle.com/otn_software/linux/instantclient/2113000/instantclient-basiclite-linux.x64-21.13.0.0.0dbru.zip \
-    && curl -o instantclient-sdk.zip https://download.oracle.com/otn_software/linux/instantclient/2113000/instantclient-sdk-linux.x64-21.13.0.0.0dbru.zip \
-    && unzip instantclient-basic.zip \
-    && unzip instantclient-sdk.zip \
+    && curl -sS -o instantclient-basic.zip https://download.oracle.com/otn_software/linux/instantclient/2113000/instantclient-basiclite-linux.x64-21.13.0.0.0dbru.zip \
+    && curl -sS -o instantclient-sdk.zip https://download.oracle.com/otn_software/linux/instantclient/2113000/instantclient-sdk-linux.x64-21.13.0.0.0dbru.zip \
+    && unzip -q instantclient-basic.zip \
+    && unzip -q instantclient-sdk.zip \
     && rm -f instantclient-basic.zip instantclient-sdk.zip \
     && mv instantclient_21_13 /usr/lib/oracle/current \
     && echo /usr/lib/oracle/current > /etc/ld.so.conf.d/oracle-instantclient.conf \
@@ -63,6 +67,7 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
     pdo_pgsql \
     pgsql \
+    pdo_sqlite \
     bcmath \
     gd \
     zip \
@@ -79,14 +84,18 @@ RUN if [ -d "/usr/lib/oracle/current" ]; then \
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# Copy Composer files first for optimal layer caching
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
+
 # Copy Application Source Code
 COPY . /var/www/html
 
+# Complete Composer autoloader generation
+RUN composer dump-autoload --optimize --no-dev --no-interaction
+
 # Copy Built Frontend Assets from Stage 1
 COPY --from=frontend-builder /app/public/build /var/www/html/public/build
-
-# Install PHP production dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
 # Copy Configurations
 COPY docker/nginx.conf /etc/nginx/sites-available/default
@@ -96,13 +105,15 @@ COPY docker/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Generate 10-year SAN SSL Certificate inside container
+# Generate 10-year SAN SSL Certificate if not already present
 RUN mkdir -p /etc/nginx/ssl \
-    && openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-    -keyout /etc/nginx/ssl/server.key \
-    -out /etc/nginx/ssl/server.crt \
-    -subj "/C=IN/ST=Tripura/L=Agartala/O=Office of the Accountant General (A&E) Tripura/OU=Fund Section/CN=gpffp.local" \
-    -addext "subjectAltName=DNS:gpffp.local,DNS:gpf-final-payment.local,DNS:gpf_final_payment.local,DNS:gpf.tripura.local,DNS:localhost,IP:10.47.240.169,IP:127.0.0.1" \
+    && if [ ! -f /etc/nginx/ssl/server.crt ] || [ ! -f /etc/nginx/ssl/server.key ]; then \
+        openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+        -keyout /etc/nginx/ssl/server.key \
+        -out /etc/nginx/ssl/server.crt \
+        -subj "/C=IN/ST=Tripura/L=Agartala/O=Office of the Accountant General (A&E) Tripura/OU=Fund Section/CN=gpffp.local" \
+        -addext "subjectAltName=DNS:gpffp.local,DNS:gpf-final-payment.local,DNS:gpf_final_payment.local,DNS:gpf.tripura.local,DNS:localhost,IP:10.47.240.169,IP:127.0.0.1"; \
+    fi \
     && chmod 600 /etc/nginx/ssl/server.key \
     && chmod 644 /etc/nginx/ssl/server.crt
 

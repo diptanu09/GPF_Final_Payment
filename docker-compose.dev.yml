@@ -1,0 +1,23 @@
+services:
+  app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gpf_final_payment_app:dev
+    container_name: gpf_final_payment_dev
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "5173:5173"
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - RUN_MIGRATIONS=false
+    env_file:
+      - .env
+    volumes:
+      - ./:/var/www/html
+      - ./docker/ssl:/etc/nginx/ssl
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
