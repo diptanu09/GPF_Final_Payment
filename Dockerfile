@@ -86,8 +86,8 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     pdo_oci \
     && echo 'instantclient,/usr/lib/oracle/current' | pecl install oci8-3.4.0 \
     && docker-php-ext-enable oci8 \
-    && php -m | grep -q oci8 \
-    && php -m | grep -q pdo_oci \
+    && php -m | grep -i -q oci8 \
+    && php -m | grep -i -q pdo_oci \
     && echo "=== Oracle OCI8 and PDO_OCI extensions verified successfully ==="
 
 # Install Composer
