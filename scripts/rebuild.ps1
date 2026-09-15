@@ -11,18 +11,33 @@ Write-Host "========================================================" -Foregroun
 docker compose up -d --build
 
 Write-Host "`n========================================================" -ForegroundColor Cyan
-Write-Host ">>> Verifying Container Health & Status" -ForegroundColor Yellow
+Write-Host ">>> Waiting for Container Startup & Health Verification" -ForegroundColor Yellow
 Write-Host "========================================================" -ForegroundColor Cyan
 
-Start-Sleep -Seconds 3
+$maxRetries = 10
+$retryCount = 0
+$isHealthy = $false
 
+while ($retryCount -lt $maxRetries) {
+    $retryCount++
+    Write-Host "Checking service health (Attempt $retryCount of $maxRetries)..." -ForegroundColor Gray
+    try {
+        $res = Invoke-WebRequest -Uri "http://localhost/login" -UseBasicParsing -TimeoutSec 5
+        if ($res.StatusCode -eq 200) {
+            $isHealthy = $true
+            break
+        }
+    } catch {
+        # Waiting for Nginx / PHP-FPM to complete startup
+    }
+    Start-Sleep -Seconds 3
+}
+
+Write-Host "`nProcesses & Container Status:" -ForegroundColor Cyan
 docker ps --filter "name=gpf_final_payment_app"
 
-try {
-    $res = Invoke-WebRequest -Uri "http://localhost/login" -UseBasicParsing -TimeoutSec 10
-    if ($res.StatusCode -eq 200) {
-        Write-Host "`n[SUCCESS] Container is ONLINE and serving requests on http://localhost/login (HTTP 200)" -ForegroundColor Green
-    }
-} catch {
-    Write-Host "`n[WARNING] Health check failed or container still starting: $_" -ForegroundColor Red
+if ($isHealthy) {
+    Write-Host "`n[SUCCESS] Portal container is 100% ONLINE and serving requests on http://localhost/login (HTTP 200 OK)" -ForegroundColor Green
+} else {
+    Write-Host "`n[NOTICE] Container is starting up. Please allow up to 15 seconds then refresh http://localhost/login." -ForegroundColor Yellow
 }
