@@ -160,31 +160,6 @@ export default function AuthBackground({ children, className = '' }) {
             <div className="absolute top-1/3 -left-32 w-[520px] h-[360px] bg-cyan-600/10 blur-[130px] rounded-full pointer-events-none animate-float-gentle"></div>
             <div className="absolute bottom-12 right-[-5%] w-[580px] h-[380px] bg-emerald-600/10 blur-[140px] rounded-full pointer-events-none animate-float-gentle" style={{ animationDelay: '2.5s' }}></div>
 
-            {/* Subtle Institutional Security Watermark (Sacred Ashoka / CAG Wheel Motif) */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.035] overflow-hidden">
-                <svg className="w-[850px] h-[850px] text-white animate-reverse-spin" viewBox="0 0 100 100" fill="none" stroke="currentColor">
-                    <circle cx="50" cy="50" r="46" strokeWidth="0.5" strokeDasharray="2,3" />
-                    <circle cx="50" cy="50" r="38" strokeWidth="0.75" />
-                    <circle cx="50" cy="50" r="28" strokeWidth="0.5" strokeDasharray="4,2" />
-                    <circle cx="50" cy="50" r="14" strokeWidth="0.8" />
-                    {[...Array(24)].map((_, i) => {
-                        const angle = (i * 360) / 24;
-                        const rad = (angle * Math.PI) / 180;
-                        const x2 = 50 + Math.cos(rad) * 28;
-                        const y2 = 50 + Math.sin(rad) * 28;
-                        return (
-                            <line
-                                key={i}
-                                x1="50"
-                                y1="50"
-                                x2={x2}
-                                y2={y2}
-                                strokeWidth="0.3"
-                            />
-                        );
-                    })}
-                </svg>
-            </div>
 
             {/* Centered Content Container */}
             <div className={`relative z-10 w-full min-h-screen flex flex-col justify-center items-center px-4 py-8 sm:py-12 ${className}`}>
