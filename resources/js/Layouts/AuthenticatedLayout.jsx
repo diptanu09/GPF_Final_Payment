@@ -76,10 +76,12 @@ export default function AuthenticatedLayout({ children, title }) {
                     >
                         {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                     </button>
-                    <Link href="/" className="flex items-center gap-2 group">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-                            GPF
-                        </div>
+                    <Link href="/" className="flex items-center gap-2.5 group">
+                        <img
+                            src="/images/gpf_seal_badge.png"
+                            alt="GPF Final Payment Portal"
+                            className="w-10 h-10 object-contain drop-shadow-md group-hover:scale-105 transition-transform"
+                        />
                         <div>
                             <h1 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
                                 {app_name}

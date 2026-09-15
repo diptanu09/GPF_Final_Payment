@@ -1,10 +1,10 @@
 import React from 'react';
-import { Shield, ShieldCheck, ShieldAlert, Lock, Unlock, Eye, KeyRound, Sparkles, Loader2 } from 'lucide-react';
+import { Shield, ShieldAlert, Lock, Eye, Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
 
 /**
- * Reactive Security Shield Avatar.
- * Dynamically transforms its visual appearance, animations, and status readout
- * based on user focus, password visibility, processing state, or error state.
+ * Reactive Official Security Seal Avatar.
+ * Integrates the official GPF Final Payment sovereign seal emblem with dynamic
+ * gyro orbiting rings, real-time focus micro-indicators, laser scanline, and audit status.
  */
 export default function SecurityShieldAvatar({
     state = 'idle', // 'idle' | 'username' | 'password' | 'peek' | 'processing' | 'error' | 'token'
@@ -15,60 +15,60 @@ export default function SecurityShieldAvatar({
     // Status metadata mapping
     const statusConfig = {
         idle: {
-            text: 'OFFICIAL AUDIT TERMINAL • READY',
-            badgeClass: 'text-slate-400 bg-slate-800/60 border-slate-700/60',
+            text: 'OFFICIAL AUDIT TERMINAL • SECURE',
+            badgeClass: 'text-slate-300 bg-slate-900/80 border-slate-700/70',
             dotClass: 'bg-emerald-400',
             ringClass: 'border-indigo-500/30',
-            iconGlow: 'shadow-indigo-600/20 text-indigo-400',
-            icon: <ShieldCheck className="w-8 h-8 text-indigo-300" />,
+            glowColor: 'rgba(99, 102, 241, 0.25)',
+            subIcon: null,
         },
         username: {
             text: 'SCANNING OFFICER IDENTITY...',
-            badgeClass: 'text-cyan-300 bg-cyan-950/60 border-cyan-500/40',
+            badgeClass: 'text-cyan-300 bg-cyan-950/70 border-cyan-500/40',
             dotClass: 'bg-cyan-400 animate-ping',
-            ringClass: 'border-cyan-400/60',
-            iconGlow: 'shadow-cyan-500/30 text-cyan-300',
-            icon: <Shield className="w-8 h-8 text-cyan-300" />,
+            ringClass: 'border-cyan-400/70',
+            glowColor: 'rgba(6, 182, 212, 0.35)',
+            subIcon: <Shield className="w-4 h-4 text-cyan-300" />,
         },
         password: {
             text: 'ENCRYPTED KEYSTORE ARMED',
-            badgeClass: 'text-indigo-300 bg-indigo-950/60 border-indigo-500/40',
+            badgeClass: 'text-indigo-300 bg-indigo-950/70 border-indigo-500/40',
             dotClass: 'bg-indigo-400',
-            ringClass: 'border-indigo-400/70',
-            iconGlow: 'shadow-indigo-500/40 text-indigo-300',
-            icon: <Lock className="w-8 h-8 text-indigo-300" />,
+            ringClass: 'border-indigo-400/80',
+            glowColor: 'rgba(99, 102, 241, 0.45)',
+            subIcon: <Lock className="w-4 h-4 text-indigo-300" />,
         },
         peek: {
             text: 'PLAINTEXT PREVIEW ACTIVE',
-            badgeClass: 'text-amber-300 bg-amber-950/60 border-amber-500/40',
+            badgeClass: 'text-amber-300 bg-amber-950/70 border-amber-500/40',
             dotClass: 'bg-amber-400 animate-pulse',
-            ringClass: 'border-amber-400/70',
-            iconGlow: 'shadow-amber-500/40 text-amber-300',
-            icon: <Eye className="w-8 h-8 text-amber-300" />,
+            ringClass: 'border-amber-400/80',
+            glowColor: 'rgba(245, 158, 11, 0.45)',
+            subIcon: <Eye className="w-4 h-4 text-amber-300" />,
         },
         token: {
             text: 'ADMIN SECURITY TOKEN ENGAGED',
-            badgeClass: 'text-emerald-300 bg-emerald-950/60 border-emerald-500/40',
+            badgeClass: 'text-emerald-300 bg-emerald-950/70 border-emerald-500/40',
             dotClass: 'bg-emerald-400 animate-pulse',
-            ringClass: 'border-emerald-400/70',
-            iconGlow: 'shadow-emerald-500/40 text-emerald-300',
-            icon: <Sparkles className="w-8 h-8 text-emerald-300" />,
+            ringClass: 'border-emerald-400/80',
+            glowColor: 'rgba(16, 185, 129, 0.45)',
+            subIcon: <Sparkles className="w-4 h-4 text-emerald-300" />,
         },
         processing: {
             text: 'VERIFYING CREDENTIALS & AUDIT LOGS...',
-            badgeClass: 'text-sky-300 bg-sky-950/60 border-sky-500/40',
+            badgeClass: 'text-sky-300 bg-sky-950/70 border-sky-500/40',
             dotClass: 'bg-sky-400 animate-spin',
             ringClass: 'border-sky-400',
-            iconGlow: 'shadow-sky-500/50 text-sky-300',
-            icon: <Loader2 className="w-8 h-8 text-sky-300 animate-spin" />,
+            glowColor: 'rgba(56, 189, 248, 0.55)',
+            subIcon: <Loader2 className="w-4 h-4 text-sky-300 animate-spin" />,
         },
         error: {
             text: 'AUTHENTICATION REJECTED',
-            badgeClass: 'text-rose-300 bg-rose-950/60 border-rose-500/40',
+            badgeClass: 'text-rose-300 bg-rose-950/70 border-rose-500/40',
             dotClass: 'bg-rose-400 animate-ping',
-            ringClass: 'border-rose-500/80',
-            iconGlow: 'shadow-rose-600/40 text-rose-400',
-            icon: <ShieldAlert className="w-8 h-8 text-rose-400" />,
+            ringClass: 'border-rose-500/90',
+            glowColor: 'rgba(244, 63, 94, 0.5)',
+            subIcon: <ShieldAlert className="w-4 h-4 text-rose-400" />,
         },
     };
 
@@ -76,11 +76,11 @@ export default function SecurityShieldAvatar({
 
     return (
         <div className="text-center space-y-3">
-            {/* Interactive Hologram Badge Core */}
+            {/* Interactive Sovereign Emblem Badge Core */}
             <div className="relative inline-flex items-center justify-center p-3">
                 {/* Rotating Outer Gyro Ring */}
                 <div
-                    className={`absolute inset-0 rounded-full border border-dashed transition-all duration-700 ${current.ringClass} ${
+                    className={`absolute -inset-2 rounded-full border border-dashed transition-all duration-700 pointer-events-none ${current.ringClass} ${
                         state === 'processing'
                             ? 'animate-radar-spin-fast'
                             : state === 'username'
@@ -91,41 +91,43 @@ export default function SecurityShieldAvatar({
 
                 {/* Counter-rotating Inner Precision Dials */}
                 <div
-                    className={`absolute inset-1.5 rounded-full border border-slate-700/50 transition-all duration-500 ${
+                    className={`absolute -inset-0.5 rounded-full border border-slate-700/50 transition-all duration-500 pointer-events-none ${
                         state === 'password' ? 'rotate-45' : 'animate-reverse-spin'
                     }`}
-                    style={{ animationDuration: '14s' }}
+                    style={{ animationDuration: '16s' }}
                 />
 
-                {/* Laser Scanline Beam when in Username Scan mode */}
+                {/* Ambient Center Glow behind Seal */}
+                <div
+                    className="absolute inset-2 rounded-full blur-xl transition-all duration-500 pointer-events-none"
+                    style={{ backgroundColor: current.glowColor }}
+                />
+
+                {/* Laser Scanline Beam in Username Scan mode */}
                 {state === 'username' && (
-                    <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-                        <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-scanline shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+                    <div className="absolute inset-1 rounded-full overflow-hidden pointer-events-none z-20">
+                        <div className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-scanline shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
                     </div>
                 )}
 
-                {/* Center Hologram Shield Container */}
+                {/* Official GPF Sovereign Seal Emblem */}
                 <div
-                    className={`relative z-10 flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-slate-900 via-slate-800 to-indigo-950 border border-slate-700/70 shadow-2xl transition-all duration-300 ${
-                        current.iconGlow
-                    } ${state === 'error' ? 'animate-micro-shake' : ''}`}
+                    className={`relative z-10 transition-transform duration-300 ${
+                        state === 'error' ? 'animate-micro-shake' : 'hover:scale-105'
+                    }`}
                 >
-                    {current.icon}
-
-                    {/* Ambient Center Glow */}
-                    <div
-                        className={`absolute inset-0 rounded-2xl opacity-20 blur-md transition-colors duration-500 ${
-                            state === 'error'
-                                ? 'bg-rose-500'
-                                : state === 'username'
-                                ? 'bg-cyan-500'
-                                : state === 'token'
-                                ? 'bg-emerald-500'
-                                : state === 'peek'
-                                ? 'bg-amber-500'
-                                : 'bg-indigo-500'
-                        }`}
+                    <img
+                        src="/images/gpf_seal_badge.png"
+                        alt="GPF Final Payment System Emblem"
+                        className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.65)]"
                     />
+
+                    {/* Reactive Status Micro-Badge (Bottom Right) */}
+                    {current.subIcon && (
+                        <div className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-slate-900 border border-slate-700 shadow-lg shadow-black/60 flex items-center justify-center animate-pulse">
+                            {current.subIcon}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -145,7 +147,7 @@ export default function SecurityShieldAvatar({
             {/* Dynamic Status Capsule */}
             <div className="flex justify-center pt-0.5">
                 <div
-                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-mono font-semibold tracking-wider uppercase border transition-all duration-300 shadow-sm ${current.badgeClass}`}
+                    className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[10px] font-mono font-semibold tracking-wider uppercase border transition-all duration-300 shadow-sm ${current.badgeClass}`}
                 >
                     <span className={`w-1.5 h-1.5 rounded-full ${current.dotClass}`} />
                     <span>{current.text}</span>
