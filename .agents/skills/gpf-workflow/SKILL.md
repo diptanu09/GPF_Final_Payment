@@ -164,4 +164,19 @@ If the Calculation page in Docker shows only 3 financial years (`2024-2025`, `20
   - In Chrome / Edge on the error page, type `thisisunsafe` to bypass self-signed certificate warnings.
   - Or install `docker/ssl/server.crt` into Windows "Trusted Root Certification Authorities".
 
+---
+
+## 7. Authentication UI/UX & Security Design Standards
+
+- **Middle / Centered Viewport Alignment**: All authentication forms (`/login`, `/register`, `/forgot-password`, `/reset-password`, `/forgot-username`) must be centered in the viewport horizontally and vertically (`min-h-screen flex flex-col justify-center items-center` in `AuthBackground`, plus `mx-auto` on the card container).
+- **Strict Prohibition of Mock / Quick Login & Dummy Placeholders**:
+  - Do NOT provide quick-login profile chips, autofill shortcuts, or mock user buttons.
+  - Only registered officers with existing records in the database may log in by manually typing their user ID and password.
+  - Placeholders must remain neutral and institutional (e.g. `Enter registered officer username`, `Enter institutional password`) with no dummy names or test values.
+- **Micro-Animations & Interactive Dynamics**:
+  - Interactive canvas constellation background (`AuthBackground.jsx`).
+  - 3D perspective tilt container with cursor spotlight border glow (`InteractiveTiltCard.jsx`).
+  - Reactive SVG Security Hologram Avatar (`SecurityShieldAvatar.jsx`) responding to field focus (`idle`, `username`, `password`, `peek`, `token`, `processing`, `error`).
+
+
 

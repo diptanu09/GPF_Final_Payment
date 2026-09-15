@@ -68,6 +68,14 @@ The system exclusively uses institutional user accounts imported from `gpffp.USE
 | `deeksha` | Deeksha (DEO / Dealing Asst) | `deo` | Inward registration, calculation runs, nominee entry |
 | `kalipada` | Kalipada (DEO / Dealing Asst) | `deo` | Inward registration, calculation runs, nominee entry |
 
+### Strict Institutional Authentication & Layout Guidelines:
+- **No Mock / Quick-Login or Dummy Data Policy**:
+  - The Login and Register UI must NEVER include quick-login autofill chips, demo buttons, or pre-filled mock credentials.
+  - Only registered officers with active accounts in the database can authenticate by providing their official User ID and password.
+  - Form placeholders must remain generic and institutional (e.g. `"Enter registered officer username"`), never inserting dummy names or test values.
+- **Centered Form Alignment Standard**:
+  - All authentication and registration screens must be precisely centered in the viewport horizontally and vertically (`min-h-screen flex flex-col justify-center items-center`, with `mx-auto` on form containers).
+
 ---
 
 ## 4. Subscriber Inward Registration Pipeline
