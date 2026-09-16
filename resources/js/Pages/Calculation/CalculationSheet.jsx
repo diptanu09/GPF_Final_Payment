@@ -424,11 +424,13 @@ export default function CalculationSheet({
                         </div>
                     </div>
                     <div className="glass-panel p-3.5 rounded-xl bg-gradient-to-r from-emerald-950/40 to-indigo-950/40 border border-emerald-500/30 col-span-2 sm:col-span-1">
-                        <div className="text-[11px] text-emerald-300 font-semibold">Net Final Settlement</div>
+                        <div className="text-[11px] text-emerald-300 font-semibold">Net GPF Settlement</div>
                         <div className="text-base font-extrabold text-emerald-400 mt-1 font-mono">
-                            ₹ {Number(liveCalculations.grand_payable).toLocaleString('en-IN')}
+                            ₹ {Number(liveCalculations.final_closing_balance).toLocaleString('en-IN')}
                         </div>
-                        <div className="text-[10px] text-emerald-400/80 mt-0.5">Statutory Amount</div>
+                        <div className="text-[10px] text-emerald-400/80 mt-0.5">
+                            {dlisAdmissible && liveCalculations.dlis_amount > 0 ? `+ ₹ ${Number(liveCalculations.dlis_amount).toLocaleString('en-IN')} DLIS` : 'Statutory GPF Balance'}
+                        </div>
                     </div>
                 </div>
 
@@ -980,17 +982,27 @@ export default function CalculationSheet({
                                     - ₹ {Number(liveCalculations.total_withdrawals).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
-                            {dlisAdmissible && (
+                            <div className="flex justify-between py-1 border-b border-slate-800 text-slate-200 font-semibold">
+                                <span>Net GPF Final Balance (Head 8009):</span>
+                                <span className="text-emerald-400 font-bold">
+                                    ₹ {Number(liveCalculations.final_closing_balance).toLocaleString('en-IN')}
+                                </span>
+                            </div>
+                            {dlisAdmissible && liveCalculations.dlis_amount > 0 && (
                                 <div className="flex justify-between py-1 border-b border-slate-800 text-slate-300">
-                                    <span>DLIS Insurance Coverage:</span>
-                                    <span className="text-amber-400">
-                                        + ₹ {Number(liveCalculations.dlis_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    <span>DLIS Insurance Coverage (Head 2235):</span>
+                                    <span className="text-amber-400 font-bold">
+                                        + ₹ {Number(liveCalculations.dlis_amount).toLocaleString('en-IN')}
                                     </span>
                                 </div>
                             )}
                             <div className="flex justify-between pt-2 text-sm font-bold text-emerald-400">
-                                <span className="font-sans">Grand Total Certified Payable:</span>
-                                <span>₹ {Number(liveCalculations.grand_payable).toLocaleString('en-IN')}</span>
+                                <span className="font-sans">
+                                    {dlisAdmissible && liveCalculations.dlis_amount > 0 ? 'Total Disbursable (GPF + DLIS):' : 'Grand Total Certified Payable:'}
+                                </span>
+                                <span>
+                                    ₹ {Number(dlisAdmissible && liveCalculations.dlis_amount > 0 ? liveCalculations.grand_payable : liveCalculations.final_closing_balance).toLocaleString('en-IN')}
+                                </span>
                             </div>
                         </div>
 

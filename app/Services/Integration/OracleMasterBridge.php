@@ -943,6 +943,7 @@ class OracleMasterBridge
         $monthlyLedger = [];
         $delayPeriodStarted = false;
         $delayOpeningBal = 0.00;
+        $delayMonthCount = 0;
 
         while ($currentDate->lessThanOrEqualTo($calcEndDate)) {
             $calMonth = $currentDate->format('Y-m');
@@ -969,6 +970,7 @@ class OracleMasterBridge
                 $delayOpeningBal = $runningOpening + $yearlyDeposits - $yearlyWithdrawals + round($yearlyInterest);
                 $runningOpening = $delayOpeningBal;
                 $runningProgressive = 0.00;
+                $delayMonthCount = 0;
             }
 
             $voucher = $vouchersByMonth[$calMonth] ?? null;
@@ -976,22 +978,32 @@ class OracleMasterBridge
             $withdrawal = $voucher ? (float) $voucher['withdrawal'] : 0.00;
             $rate = InterestRateSlab::getRateForDate($currentDate->toDateString()) ?? 7.1000;
 
+            $rowOpening = 0.00;
+
             if ($isCutMonth) {
-                // Cut Month: Values suppressed for interest calculation
+                // Cut Month: Values suppressed for interest calculation (progressive = 0, interest = 0)
+                // Credit/debit transactions in cut month are included in accumulated principal
                 $runningProgressive = 0.00;
                 $monthlyInt = 0.00;
                 $delayInt = 0.00;
+                $yearlyDeposits += $deposit;
+                $yearlyWithdrawals += $withdrawal;
+                $rowOpening = ($accountingMonth === 1) ? $runningOpening : 0.00;
             } elseif ($isDelayed) {
-                // Delayed Period: interest computed into delay_interest
-                if ($runningProgressive == 0) {
+                // Delayed Period: simple interest computed into delay_interest
+                $delayMonthCount++;
+                if ($delayMonthCount === 1) {
                     $runningProgressive = $delayOpeningBal + $deposit - $withdrawal;
+                    $rowOpening = $delayOpeningBal;
                 } else {
                     $runningProgressive += ($deposit - $withdrawal);
+                    $rowOpening = 0.00;
                 }
                 $monthlyInt = 0.00;
                 $delayInt = round(($runningProgressive * $rate) / 1200, 2);
             } else {
                 // Normal Active Period
+                $rowOpening = ($accountingMonth === 1) ? $runningOpening : 0.00;
                 if ($accountingMonth === 1 || $runningProgressive == 0) {
                     $runningProgressive = $runningOpening + $deposit - $withdrawal;
                 } else {
@@ -1010,7 +1022,7 @@ class OracleMasterBridge
                 'pay_slip_date' => $currentDate->format('Y-m-d'),
                 'interest_date' => $currentDate->format('Y-m-d'),
                 'accounting_month' => $accountingMonth,
-                'opening_balance' => round($runningOpening, 2),
+                'opening_balance' => round($rowOpening, 2),
                 'deposit' => $deposit,
                 'withdrawal' => $withdrawal,
                 'rate_of_interest' => $rate,

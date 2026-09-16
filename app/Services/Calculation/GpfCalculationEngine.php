@@ -53,7 +53,7 @@ class GpfCalculationEngine
             $months = collect($ledgerEntries['monthly_entries'] ?? []);
             $processedBreakdowns = $this->processMonthlyLedger($run, $months, $openingBal, $cutoffDate);
 
-            // Compute cumulative totals
+            // Compute cumulative totals across all months
             $totalSub = '0.0000';
             $totalRef = '0.0000';
             $totalWith = '0.0000';
@@ -109,6 +109,7 @@ class GpfCalculationEngine
     /**
      * Process month-by-month compounding and annual capitalization
      * following statutory AG Tripura GPF progressive compounding rules.
+     * Aligned with legacy calculate.php and calculation_sheet.php.
      */
     protected function processMonthlyLedger(CalculationRun $run, Collection $entries, string $openingBal, Carbon $cutoffDate): Collection
     {
@@ -121,6 +122,7 @@ class GpfCalculationEngine
         $currentFinYear = null;
         $delayPeriodStarted = false;
         $delayOpeningBal = '0.0000';
+        $delayMonthCount = 0;
 
         // Detect explicit Cut Month in the ledger (matching legacy GPF_ACCOUNT_CALCULATION WHERE CUT_MONTH='Y')
         $cutMonthEntry = $entries->first(fn ($item) => !empty($item['is_cut_month']));
@@ -145,7 +147,7 @@ class GpfCalculationEngine
             // Determine rate of interest for this month
             $rate = (string) ($item['rate_of_interest'] ?? InterestRateSlab::getRateForDate($paySlipDate->toDateString()) ?? config('gpf.interest.default_rate', 7.1000));
 
-            // If transitioning to a new Financial Year, capitalize previous year's interest & net transactions
+            // If transitioning to a new Financial Year (normal period), capitalize previous year's interest & net transactions
             if (!$isDelayed && $currentFinYear !== null && $finYear !== $currentFinYear) {
                 $annualInterest = (string) round((float) $yearlyAccruedInterest);
                 $currentOpening = bcadd($currentOpening, $yearlyDeposits, $this->scale);
@@ -169,22 +171,37 @@ class GpfCalculationEngine
                 $delayOpeningBal = bcadd($delayOpeningBal, $annualInterest, $this->scale);
                 $currentOpening = $delayOpeningBal;
                 $runningProgressive = '0.0000';
+                $delayMonthCount = 0;
             }
 
             $effectiveDeposit = $intOnDeposit ? $deposit : '0.0000';
 
-            // Calculate Progressive Balance
+            // Calculate Progressive Balance & Row-Level Opening Balance
+            $rowOpeningBalance = '0.0000';
+
             if ($isCutMonth) {
-                // Cut month: values are suppressed for interest calculation
+                // Cut month: values are suppressed for interest calculation (progressive = 0, interest = 0)
+                // However, following legacy calculate.php line 120-126, transactions in cut month
+                // are credited/debited into the accumulated principal carried into the delay period.
                 $progressive = '0.0000';
                 $actualInt = '0.0000';
                 $delayInt = '0.0000';
                 $runningProgressive = '0.0000';
+
+                $yearlyDeposits = bcadd($yearlyDeposits, $effectiveDeposit, $this->scale);
+                $yearlyWithdrawals = bcadd($yearlyWithdrawals, $withdrawal, $this->scale);
+
+                $rowOpeningBalance = ($accountingMonth === 1) ? $currentOpening : '0.0000';
             } elseif ($isDelayed) {
-                // Delayed period (after cutoff)
-                if (bccomp($runningProgressive, '0.0000', $this->scale) === 0) {
+                // Delayed period (after cutoff): simple monthly interest without annual compounding
+                $delayMonthCount++;
+                if ($delayMonthCount === 1) {
                     $runningProgressive = $delayOpeningBal;
+                    $rowOpeningBalance = $delayOpeningBal;
+                } else {
+                    $rowOpeningBalance = '0.0000';
                 }
+
                 $monthStep = bcsub($effectiveDeposit, $withdrawal, $this->scale);
                 $runningProgressive = bcadd($runningProgressive, $monthStep, $this->scale);
                 $progressive = $runningProgressive;
@@ -195,6 +212,8 @@ class GpfCalculationEngine
                 $delayInt = (string) round((float) $monthlyInt, 2);
             } else {
                 // Normal month within active FY
+                $rowOpeningBalance = ($accountingMonth === 1) ? $currentOpening : '0.0000';
+
                 $monthStep = bcsub($effectiveDeposit, $withdrawal, $this->scale);
                 if ($accountingMonth === 1 || bccomp($runningProgressive, '0.0000', $this->scale) === 0) {
                     $runningProgressive = bcadd($currentOpening, $monthStep, $this->scale);
@@ -224,7 +243,7 @@ class GpfCalculationEngine
                 'pay_slip_date' => $paySlipDate->toDateString(),
                 'interest_date' => isset($item['interest_date']) ? Carbon::parse($item['interest_date'])->toDateString() : null,
                 'accounting_month' => $accountingMonth,
-                'opening_balance' => round((float) $currentOpening, 2),
+                'opening_balance' => round((float) $rowOpeningBalance, 2),
                 'deposit' => round((float) $deposit, 2),
                 'withdrawal' => round((float) $withdrawal, 2),
                 'rate_of_interest' => round((float) $rate, 4),
@@ -247,6 +266,7 @@ class GpfCalculationEngine
     /**
      * Compute DLIS (Deposit Linked Insurance Scheme) 36-month average up to statutory cap
      * Matching legacy formula: (Sum(Progressive in 36m) + Sum(Interest in 36m)) / 36
+     * Rounded to nearest whole integer rupee per statutory order.
      */
     protected function calculateDlisAmount(Collection $breakdowns, Carbon $cutoffDate): float
     {
@@ -263,7 +283,7 @@ class GpfCalculationEngine
         $sumInterest = $eligibleMonths->sum(fn ($r) => (float) $r->actual_interest);
         $average = ($sumProgressive + $sumInterest) / min(36, max(1, $eligibleMonths->count()));
 
-        return min($cap, round($average, 2));
+        return min($cap, (float) round($average, 0));
     }
 
     /**
