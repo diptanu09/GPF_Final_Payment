@@ -114,9 +114,13 @@ When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSub
 3. **Cut Month & Interest Suppression Rule**:
    - Subscriptions and withdrawals occurring **after** the interest cut month (event month) are excluded from progressive balance and earn **zero** interest.
    - For months after the cut month within the event FY, the actual interest computed is strictly `0.00`.
-4. **Delay Interest Calculation**:
+4. **Delay Interest Calculation & Statutory 6-Month Cap (Central GPF Rule 11(4))**:
    - When payment is processed after the event FY (or after interest cut month), delayed interest is computed on the final closing balance for each delayed month:
      $$\text{Delayed Interest} = \frac{\text{Closing Balance} \times \text{Rate} \times \text{Delayed Months}}{1200}$$
+   - **Statutory 6-Month Delay Cap**: Under Central GPF Rule 11(4), interest on delayed final payment is admissible for a maximum period of **6 months**.
+   - **Sr. AO Delay Justification Requirement for Months 7+**: If payment is delayed for 7 months or beyond (7+), interest for months 7+ is strictly **₹0.00 (suppressed/capped)** unless an official **Delay Justification / Remarks** is recorded and approved by the Sr. Accounts Officer (`approver`) or Directorate (`admin`).
+   - When approved justification is present, interest for months 7+ is unlocked and computed.
+   - Delay metadata is persisted across `inward_cases` and `calculation_runs` (`delay_justification`, `delay_approved_by`, `delay_approved_at`, `delay_months_count`, `has_exceeded_delay_cap`).
    - Both `actual_interest_computed` and `delayed_interest_computed` are recorded separately and summed in `total_interest_computed`.
 5. **Deposit-Linked Insurance Scheme (DLIS)**:
    - Admissible on `CaseType::DEATH_IN_SERVICE` (`pension_type_id = '2'` or `'7'`).

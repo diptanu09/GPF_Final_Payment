@@ -285,7 +285,7 @@ class GpfCalculationEngineTest extends TestCase
             'pension_type_id' => '1',
             'ddo_code' => '1001',
             'treasury_code' => '01',
-            'event_date' => '2024-03-31',
+            'event_date' => '2024-03-15',
             'personal_address' => 'Agartala',
             'current_status' => CaseWorkflowStatus::DRAFT,
             'created_by' => $user->id,
@@ -396,7 +396,7 @@ class GpfCalculationEngineTest extends TestCase
             'pension_type_id' => '1',
             'ddo_code' => '1001',
             'treasury_code' => '01',
-            'event_date' => '2024-09-30',
+            'event_date' => '2024-09-15',
             'personal_address' => 'Agartala',
             'current_status' => CaseWorkflowStatus::DRAFT,
             'created_by' => $user->id,
@@ -504,4 +504,405 @@ class GpfCalculationEngineTest extends TestCase
             (float) $breakdowns[4]->delay_interest
         );
     }
+
+    public function test_full_legacy_calculation_pipeline_parity_with_excess_deposits_and_delayed_interest(): void
+    {
+        $user = User::first();
+
+        $case = InwardCase::create([
+            'registration_no' => '20240977112',
+            'series_code' => '07',
+            'account_no' => '77112',
+            'subscriber_name_cache' => 'Strict Legacy Audit Subscriber',
+            'name_title' => 'Shri',
+            'designation_title' => 'Mr',
+            'designation' => 'Supervisor',
+            'case_type' => CaseType::NORMAL_SUPERANNUATION,
+            'pension_type_id' => '1',
+            'ddo_code' => '1001',
+            'treasury_code' => '01',
+            'event_date' => '2024-06-15',
+            'personal_address' => 'Agartala',
+            'current_status' => CaseWorkflowStatus::DRAFT,
+            'created_by' => $user->id,
+        ]);
+
+        $ledgerEntries = [
+            'opening_balance' => 100000.00,
+            'opening_fin_year' => '2024-2025',
+            'monthly_entries' => [
+                // Month 1: 2024-04 (Normal deposit)
+                [
+                    'financial_year' => '2024-2025',
+                    'calendar_month' => '2024-04',
+                    'pay_slip_date' => '2024-04-01',
+                    'accounting_month' => 1,
+                    'deposit' => 10000.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => true,
+                    'is_cut_month' => false,
+                ],
+                // Month 2: 2024-05 (Excess deposit where interest_on_deposit = false)
+                [
+                    'financial_year' => '2024-2025',
+                    'calendar_month' => '2024-05',
+                    'pay_slip_date' => '2024-05-01',
+                    'accounting_month' => 2,
+                    'deposit' => 10000.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => false,
+                    'is_cut_month' => false,
+                ],
+                // Month 3: 2024-06 (Cut Month with deposit & withdrawal)
+                [
+                    'financial_year' => '2024-2025',
+                    'calendar_month' => '2024-06',
+                    'pay_slip_date' => '2024-06-01',
+                    'accounting_month' => 3,
+                    'deposit' => 5000.00,
+                    'withdrawal' => 2000.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => true,
+                    'is_cut_month' => true,
+                ],
+                // Month 4: 2024-07 (Delay Month 1)
+                [
+                    'financial_year' => '2024-2025',
+                    'calendar_month' => '2024-07',
+                    'pay_slip_date' => '2024-07-01',
+                    'accounting_month' => 4,
+                    'deposit' => 0.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => false,
+                    'is_cut_month' => false,
+                ],
+                // Month 5: 2024-08 (Delay Month 2)
+                [
+                    'financial_year' => '2024-2025',
+                    'calendar_month' => '2024-08',
+                    'pay_slip_date' => '2024-08-01',
+                    'accounting_month' => 5,
+                    'deposit' => 0.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => false,
+                    'is_cut_month' => false,
+                ],
+            ],
+        ];
+
+        $run = $this->engine->calculate($case, $ledgerEntries, $user->id);
+        $breakdowns = $run->monthlyBreakdowns;
+
+        // Month 1 progressive: 100,000 + 10,000 = 110,000. Interest: 650.83
+        $this->assertEquals(110000.00, (float) $breakdowns[0]->progressive_balance);
+        $this->assertEquals(650.83, (float) $breakdowns[0]->actual_interest);
+
+        // Month 2 progressive: 110,000 (deposit excluded from progressive since interest_on_deposit = false). Interest: 650.83
+        $this->assertEquals(110000.00, (float) $breakdowns[1]->progressive_balance);
+        $this->assertEquals(650.83, (float) $breakdowns[1]->actual_interest);
+
+        // Month 3 (Cut Month): progressive = 0, actual_interest = 0
+        $this->assertEquals(0.00, (float) $breakdowns[2]->progressive_balance);
+        $this->assertEquals(0.00, (float) $breakdowns[2]->actual_interest);
+
+        // Delay Opening Balance in Month 4:
+        // 100,000 + 15,000 - 2,000 + round(650.83 + 650.83 = 1301.66 => 1302) = 114,302.00
+        $this->assertEquals(114302.00, (float) $breakdowns[3]->opening_balance);
+        $this->assertEquals(114302.00, (float) $breakdowns[3]->progressive_balance);
+        // Delay interest = round(114302 * 7.1 / 1200, 2) = 676.29
+        $this->assertEquals(676.29, (float) $breakdowns[3]->delay_interest);
+
+        // Month 5 Delay Month 2:
+        $this->assertEquals(0.00, (float) $breakdowns[4]->opening_balance);
+        $this->assertEquals(114302.00, (float) $breakdowns[4]->progressive_balance);
+        $this->assertEquals(676.29, (float) $breakdowns[4]->delay_interest);
+
+        // Summary Checks:
+        $this->assertEquals(15000.00, (float) $run->total_subscriptions); // 10000 + 5000
+        $this->assertEquals(10000.00, (float) $run->excess_deposits);     // 10000
+        $this->assertEquals(2000.00, (float) $run->total_withdrawals);    // 2000
+        $this->assertEquals(1301.66, (float) $run->actual_interest_computed);
+        $this->assertEquals(1352.58, (float) $run->delayed_interest_computed); // 676.29 * 2
+        $this->assertEquals(2654.24, (float) $run->total_interest_computed);
+
+        // Final closing balance matching legacy calculate.php line 264:
+        // delayOpeningBal (114,302) + excess (10,000) - delayWithdrawals (0) + delayInterest (1352.58) = 125,654.58 => 125655
+        $this->assertEquals(125655.00, (float) $run->final_closing_balance);
+    }
+
+    public function test_superannuation_month_end_retirement_earns_interest_in_retirement_month(): void
+    {
+        $user = User::first();
+
+        $case = InwardCase::create([
+            'registration_no' => '20240399887',
+            'series_code' => '01',
+            'account_no' => '99887',
+            'subscriber_name_cache' => 'Superannuation Month End Retiring Employee',
+            'name_title' => 'Shri',
+            'designation_title' => 'Mr',
+            'designation' => 'Principal',
+            'case_type' => CaseType::NORMAL_SUPERANNUATION,
+            'pension_type_id' => '1',
+            'ddo_code' => '1001',
+            'treasury_code' => '01',
+            'event_date' => '2024-03-31', // Last day of March 2024
+            'personal_address' => 'Agartala',
+            'current_status' => CaseWorkflowStatus::DRAFT,
+            'created_by' => $user->id,
+        ]);
+
+        $ledgerEntries = [
+            'opening_balance' => 200000.00,
+            'opening_fin_year' => '2023-2024',
+            'monthly_entries' => [
+                // Month 1: 2024-02 (Normal Month)
+                [
+                    'financial_year' => '2023-2024',
+                    'calendar_month' => '2024-02',
+                    'pay_slip_date' => '2024-02-01',
+                    'accounting_month' => 11,
+                    'deposit' => 10000.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => true,
+                    'is_cut_month' => false,
+                ],
+                // Month 2: 2024-03 (Retirement Month / Cut Month on 31st March)
+                [
+                    'financial_year' => '2023-2024',
+                    'calendar_month' => '2024-03',
+                    'pay_slip_date' => '2024-03-01',
+                    'accounting_month' => 12,
+                    'deposit' => 0.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => true,
+                    'is_cut_month' => true,
+                ],
+                // Month 3: 2024-04 (Delay Month 1)
+                [
+                    'financial_year' => '2024-2025',
+                    'calendar_month' => '2024-04',
+                    'pay_slip_date' => '2024-04-01',
+                    'accounting_month' => 1,
+                    'deposit' => 0.00,
+                    'withdrawal' => 0.00,
+                    'rate_of_interest' => 7.1000,
+                    'interest_on_deposit' => false,
+                    'is_cut_month' => false,
+                ],
+            ],
+        ];
+
+        $run = $this->engine->calculate($case, $ledgerEntries, $user->id);
+        $breakdowns = $run->monthlyBreakdowns;
+
+        // Month 1 (2024-02): Progressive = 210,000, actual_interest = 210,000 * 7.1 / 1200 = 1242.50
+        $this->assertEquals(210000.00, (float) $breakdowns[0]->progressive_balance);
+        $this->assertEquals(1242.50, (float) $breakdowns[0]->actual_interest);
+
+        // Month 2 (2024-03 - Retirement Month):
+        // Under statutory rule, because subscriber retired on month end (2024-03-31) in superannuation,
+        // employee EARNS interest for that month:
+        // Progressive = 210,000, actual_interest = 1242.50
+        $this->assertTrue((bool) $breakdowns[1]->is_cut_month);
+        $this->assertEquals(210000.00, (float) $breakdowns[1]->progressive_balance);
+        $this->assertEquals(1242.50, (float) $breakdowns[1]->actual_interest);
+        $this->assertEquals(0.00, (float) $breakdowns[1]->delay_interest);
+
+        // Month 3 (2024-04 - Delay Month 1):
+        // Yearly interest capitalized for 2023-2024 = round(1242.50 + 1242.50) = 2485
+        // Delay opening balance = 200,000 + 10,000 + 2,485 = 212,485.00
+        $this->assertEquals(212485.00, (float) $breakdowns[2]->opening_balance);
+        $this->assertEquals(212485.00, (float) $breakdowns[2]->progressive_balance);
+        $this->assertEquals(1257.20, (float) $breakdowns[2]->delay_interest);
+        $this->assertEquals(0.00, (float) $breakdowns[2]->actual_interest);
+    }
+
+    public function test_delay_interest_capped_at_six_months_without_justification(): void
+    {
+        $user = User::first();
+
+        $case = InwardCase::create([
+            'registration_no' => '20240988888',
+            'series_code' => '01',
+            'account_no' => '88888',
+            'subscriber_name_cache' => 'Capped Delay Subscriber',
+            'name_title' => 'Shri',
+            'designation_title' => 'Mr',
+            'designation' => 'Officer',
+            'case_type' => CaseType::NORMAL_SUPERANNUATION,
+            'pension_type_id' => '1',
+            'ddo_code' => '1001',
+            'treasury_code' => '01',
+            'event_date' => '2024-03-31',
+            'personal_address' => 'Agartala',
+            'current_status' => CaseWorkflowStatus::DRAFT,
+            'created_by' => $user->id,
+        ]);
+
+        $monthlyEntries = [
+            // Cut Month (2024-03)
+            [
+                'financial_year' => '2023-2024',
+                'calendar_month' => '2024-03',
+                'pay_slip_date' => '2024-03-01',
+                'accounting_month' => 12,
+                'deposit' => 0.00,
+                'withdrawal' => 0.00,
+                'rate_of_interest' => 7.1000,
+                'interest_on_deposit' => true,
+                'is_cut_month' => true,
+            ],
+        ];
+
+        // Add 8 delay months (2024-04 to 2024-11)
+        for ($i = 1; $i <= 8; $i++) {
+            $monthNum = 3 + $i;
+            $calMonth = sprintf('2024-%02d', $monthNum);
+            $monthlyEntries[] = [
+                'financial_year' => '2024-2025',
+                'calendar_month' => $calMonth,
+                'pay_slip_date' => "{$calMonth}-01",
+                'accounting_month' => $i,
+                'deposit' => 0.00,
+                'withdrawal' => 0.00,
+                'rate_of_interest' => 7.1000,
+                'interest_on_deposit' => false,
+                'is_cut_month' => false,
+            ];
+        }
+
+        $ledgerEntries = [
+            'opening_balance' => 100000.00,
+            'opening_fin_year' => '2023-2024',
+            'monthly_entries' => $monthlyEntries,
+            // NO delay_justification provided
+        ];
+
+        $run = $this->engine->calculate($case, $ledgerEntries, $user->id);
+        $breakdowns = $run->monthlyBreakdowns;
+
+        $this->assertEquals(8, $run->delay_months_count);
+        $this->assertTrue((bool) $run->has_exceeded_delay_cap);
+        $this->assertNull($run->delay_justification);
+
+        // Delay months 1 to 6 (index 1 to 6 in breakdowns): delay_interest > 0
+        for ($m = 1; $m <= 6; $m++) {
+            $this->assertGreaterThan(
+                0,
+                (float) $breakdowns[$m]->delay_interest,
+                "Delay month {$m} should earn delay interest within statutory 6-month limit."
+            );
+        }
+
+        // Delay months 7 and 8 (index 7 and 8 in breakdowns): delay_interest MUST be 0.00 (capped)
+        $this->assertEquals(
+            0.00,
+            (float) $breakdowns[7]->delay_interest,
+            'Delay month 7 MUST have 0.00 interest without justification under Rule 11(4).'
+        );
+        $this->assertEquals(
+            0.00,
+            (float) $breakdowns[8]->delay_interest,
+            'Delay month 8 MUST have 0.00 interest without justification under Rule 11(4).'
+        );
+    }
+
+    public function test_delay_interest_allowed_for_months_seven_plus_with_justification(): void
+    {
+        $user = User::first();
+
+        $case = InwardCase::create([
+            'registration_no' => '20240977777',
+            'series_code' => '01',
+            'account_no' => '77777',
+            'subscriber_name_cache' => 'Justified Delay Subscriber',
+            'name_title' => 'Shri',
+            'designation_title' => 'Mr',
+            'designation' => 'Officer',
+            'case_type' => CaseType::NORMAL_SUPERANNUATION,
+            'pension_type_id' => '1',
+            'ddo_code' => '1001',
+            'treasury_code' => '01',
+            'event_date' => '2024-03-31',
+            'personal_address' => 'Agartala',
+            'current_status' => CaseWorkflowStatus::DRAFT,
+            'created_by' => $user->id,
+        ]);
+
+        $monthlyEntries = [
+            // Cut Month (2024-03)
+            [
+                'financial_year' => '2023-2024',
+                'calendar_month' => '2024-03',
+                'pay_slip_date' => '2024-03-01',
+                'accounting_month' => 12,
+                'deposit' => 0.00,
+                'withdrawal' => 0.00,
+                'rate_of_interest' => 7.1000,
+                'interest_on_deposit' => true,
+                'is_cut_month' => true,
+            ],
+        ];
+
+        // Add 8 delay months (2024-04 to 2024-11)
+        for ($i = 1; $i <= 8; $i++) {
+            $monthNum = 3 + $i;
+            $calMonth = sprintf('2024-%02d', $monthNum);
+            $monthlyEntries[] = [
+                'financial_year' => '2024-2025',
+                'calendar_month' => $calMonth,
+                'pay_slip_date' => "{$calMonth}-01",
+                'accounting_month' => $i,
+                'deposit' => 0.00,
+                'withdrawal' => 0.00,
+                'rate_of_interest' => 7.1000,
+                'interest_on_deposit' => false,
+                'is_cut_month' => false,
+            ];
+        }
+
+        $justificationText = 'Late submission of LPC and Service Book from DDO due to departmental audit. Delay not attributable to subscriber.';
+
+        $ledgerEntries = [
+            'opening_balance' => 100000.00,
+            'opening_fin_year' => '2023-2024',
+            'delay_justification' => $justificationText,
+            'monthly_entries' => $monthlyEntries,
+        ];
+
+        $run = $this->engine->calculate($case, $ledgerEntries, $user->id);
+        $breakdowns = $run->monthlyBreakdowns;
+
+        $this->assertEquals(8, $run->delay_months_count);
+        $this->assertTrue((bool) $run->has_exceeded_delay_cap);
+        $this->assertEquals($justificationText, $run->delay_justification);
+
+        // Case should also have delay justification persisted
+        $case->refresh();
+        $this->assertEquals($justificationText, $case->delay_justification);
+
+        // All 8 delay months MUST earn delay interest when justification is present
+        for ($m = 1; $m <= 8; $m++) {
+            $this->assertGreaterThan(
+                0,
+                (float) $breakdowns[$m]->delay_interest,
+                "Delay month {$m} should earn delay interest because official delay justification is recorded."
+            );
+        }
+
+        // Compare total delay interest with vs without justification
+        // 8 months with interest > 6 months with interest
+        $totalDelayInterest = (float) $breakdowns->sum('delay_interest');
+        $delayOpeningBalance = (float) $breakdowns[1]->opening_balance;
+        $expectedMonthlyDelay = round(($delayOpeningBalance * 7.1) / 1200, 2);
+        $this->assertEquals(round($expectedMonthlyDelay * 8, 2), round($totalDelayInterest, 2));
+    }
 }
+

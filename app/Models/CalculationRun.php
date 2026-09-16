@@ -35,6 +35,10 @@ class CalculationRun extends Model
         'approved_by',
         'is_locked',
         'remarks',
+        'delay_justification',
+        'delay_approved_by',
+        'delay_months_count',
+        'has_exceeded_delay_cap',
     ];
 
     protected $casts = [
@@ -54,7 +58,14 @@ class CalculationRun extends Model
         'cutoff_date' => 'date',
         'interest_allowed_upto' => 'date',
         'is_locked' => 'boolean',
+        'delay_months_count' => 'integer',
+        'has_exceeded_delay_cap' => 'boolean',
     ];
+
+    public function delayApprover(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'delay_approved_by');
+    }
 
     public function inwardCase(): BelongsTo
     {

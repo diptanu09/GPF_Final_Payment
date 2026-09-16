@@ -51,6 +51,9 @@ class InwardCase extends Model
         'spouse_relation',
         'lta_to_whom',
         'date_of_lta',
+        'delay_justification',
+        'delay_approved_by',
+        'delay_approved_at',
         'current_status',
         'assigned_user_id',
         'created_by',
@@ -82,7 +85,13 @@ class InwardCase extends Model
         'hrms_uploaded_at' => 'datetime',
         'dispatched_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'delay_approved_at' => 'datetime',
     ];
+
+    public function delayApprover(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'delay_approved_by');
+    }
 
     public function assignedUser(): BelongsTo
     {

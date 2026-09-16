@@ -31,11 +31,16 @@ export default function CalculationSheet({
     available_base_years = [],
     opening_balance = 0,
     opening_fin_year = '2023-2024',
-    monthly_ledger = []
+    monthly_ledger = [],
+    delay_justification = '',
+    delay_approved_by = null,
+    delay_approved_at = null,
 }) {
     const [openingBal, setOpeningBal] = useState(opening_balance || 0);
     const [finYear, setFinYear] = useState(opening_fin_year || '2023-2024');
     const [rows, setRows] = useState(monthly_ledger || []);
+    const [delayRemarks, setDelayRemarks] = useState(delay_justification || '');
+    const [isSaving, setIsSaving] = useState(false);
     const [dlisAdmissible, setDlisAdmissible] = useState(
         calculation_run ? Boolean(calculation_run.dlis_admissible) : (case_data.case_type === 'FAM' || case_data.case_type === 'D')
     );
@@ -44,6 +49,7 @@ export default function CalculationSheet({
     useEffect(() => {
         setOpeningBal(opening_balance || 0);
         setFinYear(opening_fin_year || '2023-2024');
+        setDelayRemarks(delay_justification || '');
         let initialRows = monthly_ledger || [];
         if (initialRows.length > 0 && !initialRows.some((r) => r.is_cut_month)) {
             const eventYM = case_data?.event_date ? case_data.event_date.slice(0, 7) : null;
@@ -55,12 +61,13 @@ export default function CalculationSheet({
             }
         }
         setRows(initialRows);
-    }, [opening_balance, opening_fin_year, monthly_ledger, case_data?.event_date]);
+    }, [opening_balance, opening_fin_year, monthly_ledger, case_data?.event_date, delay_justification]);
 
     const { data, setData, post, processing } = useForm({
         opening_balance: openingBal,
         opening_fin_year: finYear,
         monthly_entries: rows,
+        delay_justification: delayRemarks,
     });
 
     // Handle changing the Base Financial Year from VLC list
@@ -162,16 +169,50 @@ export default function CalculationSheet({
             cutMonthIdx = rows.findIndex((r) => r.pay_slip_date && r.pay_slip_date.slice(0, 7) === eventYM);
         }
 
+        // Statutory Rule: Superannuation subscriber who retired on month-end completed full service
+        // and is entitled to full interest for that retirement month.
+        const isSuperannuation = (case_data?.case_type === 'F' || case_data?.case_type === 'NORMAL_SUPERANNUATION' || String(case_data?.pension_type_id) === '1');
+        let isMonthEndRetirement = false;
+        let eventYM = null;
+        if (case_data?.event_date) {
+            const parts = case_data.event_date.split('-');
+            if (parts.length === 3) {
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10);
+                const day = parseInt(parts[2], 10);
+                const daysInMonth = new Date(year, month, 0).getDate();
+                isMonthEndRetirement = (day === daysInMonth);
+                eventYM = `${parts[0]}-${parts[1].padStart(2, '0')}`;
+            }
+        }
+
+        let delayMonthCount = 0;
+
         const calculatedRows = rows.map((r, idx) => {
             const dep = parseFloat(r.deposit) || 0;
             const withdr = parseFloat(r.withdrawal) || 0;
             const rate = parseFloat(r.rate_of_interest) || 7.1;
             const intOnDep = r.interest_on_deposit !== false;
             const isCutMonth = (idx === cutMonthIdx);
+            const calMonth = r.calendar_month || (r.pay_slip_date ? r.pay_slip_date.slice(0, 7) : null);
+            const isEventMonth = (eventYM !== null && calMonth === eventYM);
+            const earnsInterestInCutMonth = (isCutMonth && isSuperannuation && isMonthEndRetirement && isEventMonth);
             const finY = r.financial_year;
 
             // Is this row in the delayed period (after Cut Month)?
             const isDelayRow = (cutMonthIdx !== -1 && idx > cutMonthIdx);
+            let delayMonthNumber = null;
+            let isDelayCapped = false;
+
+            if (isDelayRow) {
+                delayMonthCount += 1;
+                delayMonthNumber = delayMonthCount;
+                // Statutory Rule: Delay interest capped at 6 months under Central GPF Rule 11(4).
+                // Months 7+ strictly require administrative justification / remarks before interest is allowed.
+                if (delayMonthCount > 6 && !delayRemarks.trim()) {
+                    isDelayCapped = true;
+                }
+            }
 
             // Transition between Normal Financial Years: Capitalize previous year's interest
             if (!isDelayRow && currentFY !== null && finY !== currentFY) {
@@ -208,8 +249,9 @@ export default function CalculationSheet({
             let mActualInterest = 0;
             let mDelayInterest = 0;
 
-            if (isCutMonth) {
-                // Cut Month: Suppressed for interest (progressive = 0, interest = 0)
+            if (isCutMonth && !earnsInterestInCutMonth) {
+                // Cut Month without interest (mid-month retirement or non-superannuation):
+                // Suppressed for interest (progressive = 0, interest = 0)
                 runningProgressive = 0;
                 mActualInterest = 0;
                 mDelayInterest = 0;
@@ -221,12 +263,14 @@ export default function CalculationSheet({
                     runningProgressive += (effectiveDep - withdr);
                 }
 
-                if (runningProgressive > 0) {
+                if (runningProgressive > 0 && !isDelayCapped) {
                     mDelayInterest = Math.round(((runningProgressive * rate) / 1200) * 100) / 100;
+                } else {
+                    mDelayInterest = 0;
                 }
                 cumulativeDelayInt += mDelayInterest;
             } else {
-                // Normal Active Period Month
+                // Normal Active Period Month OR Month-End Superannuation Retirement Month
                 if (r.accounting_month === 1 || runningProgressive === 0) {
                     runningProgressive = currentOpening + effectiveDep - withdr;
                 } else {
@@ -245,7 +289,11 @@ export default function CalculationSheet({
                 ...r,
                 _rowIndex: idx,
                 is_cut_month: isCutMonth,
+                earns_interest_in_cut_month: earnsInterestInCutMonth,
                 is_delayed: isDelayRow,
+                delay_month_number: delayMonthNumber,
+                is_delay_capped: isDelayCapped,
+                is_delay_justified: isDelayRow && delayMonthNumber > 6 && Boolean(delayRemarks.trim()),
                 opening_balance: (r.accounting_month === 1 || (isDelayRow && idx === cutMonthIdx + 1)) ? Math.round(currentOpening * 100) / 100 : 0,
                 progressive_balance: Math.round(runningProgressive * 100) / 100,
                 actual_interest: mActualInterest,
@@ -321,6 +369,9 @@ export default function CalculationSheet({
             delay_rows: delayRows,
             delay_summary: delaySummary,
             has_delay: delayRows.length > 0,
+            delay_months_count: delayRows.length,
+            has_exceeded_delay_cap: delayRows.length > 6,
+            delay_justified: Boolean(delayRemarks.trim()),
             cut_month_idx: cutMonthIdx,
             total_subscriptions: totalSub,
             total_excess: totalExcess,
@@ -332,14 +383,18 @@ export default function CalculationSheet({
             dlis_amount: dlisAmount,
             grand_payable: finalAmount + dlisAmount,
         };
-    }, [openingBal, rows, dlisAdmissible, case_data?.event_date]);
+    }, [openingBal, rows, dlisAdmissible, case_data?.event_date, delayRemarks]);
 
     const submit = (e) => {
         if (e && e.preventDefault) e.preventDefault();
+        setIsSaving(true);
         router.post(`/calculation/${case_data.id}`, {
             opening_balance: openingBal,
             opening_fin_year: finYear,
             monthly_entries: rows,
+            delay_justification: delayRemarks,
+        }, {
+            onFinish: () => setIsSaving(false),
         });
     };
 
@@ -391,11 +446,11 @@ export default function CalculationSheet({
                         <button
                             type="button"
                             onClick={submit}
-                            disabled={processing}
+                            disabled={isSaving}
                             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"
                         >
                             <Save className="w-4 h-4" />
-                            <span>{processing ? 'Calculating & Saving...' : 'Save & Sanction Settlement'}</span>
+                            <span>{isSaving ? 'Calculating & Saving...' : 'Save & Sanction Settlement'}</span>
                         </button>
                     </div>
                 </div>
@@ -596,11 +651,16 @@ export default function CalculationSheet({
                                             {group.rows.map((row) => {
                                                 const originalIndex = row._rowIndex;
                                                 const isCut = row.is_cut_month;
+                                                const earnsInt = row.earns_interest_in_cut_month;
                                                 const noInt = row.interest_on_deposit === false;
 
                                                 let rowBg = 'hover:bg-slate-900/40';
                                                 if (isCut) {
-                                                    rowBg = 'bg-rose-950/40 hover:bg-rose-950/50 text-rose-200 border-l-4 border-rose-500';
+                                                    if (earnsInt) {
+                                                        rowBg = 'bg-emerald-950/30 hover:bg-emerald-950/40 text-emerald-200 border-l-4 border-emerald-500';
+                                                    } else {
+                                                        rowBg = 'bg-rose-950/40 hover:bg-rose-950/50 text-rose-200 border-l-4 border-rose-500';
+                                                    }
                                                 } else if (noInt) {
                                                     rowBg = 'bg-cyan-950/20 hover:bg-cyan-950/30 text-cyan-200';
                                                 }
@@ -619,9 +679,15 @@ export default function CalculationSheet({
                                                                     M{row.accounting_month}
                                                                 </span>
                                                                 {isCut && (
-                                                                    <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[9px] font-sans font-bold uppercase">
-                                                                        Cut Month
-                                                                    </span>
+                                                                    earnsInt ? (
+                                                                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-sans font-bold uppercase" title="Month-end Superannuation: Entitled to full interest">
+                                                                            Retirement Month (Interest Admissible)
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[9px] font-sans font-bold uppercase" title="Cut Month: Interest suppressed">
+                                                                            Cut Month (Suppressed)
+                                                                        </span>
+                                                                    )
                                                                 )}
                                                             </div>
                                                         </td>
@@ -735,7 +801,7 @@ export default function CalculationSheet({
                 {/* Section 2: Dedicated DELAY INTEREST CALCULATION Table (Post Cut-Off Period) */}
                 {liveCalculations.has_delay && (
                     <div className="space-y-4 pt-4">
-                        <div className="flex items-center justify-between px-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
                             <div className="flex items-center gap-2.5">
                                 <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
                                     <AlertTriangle className="w-4 h-4" />
@@ -750,6 +816,76 @@ export default function CalculationSheet({
                             <div className="text-xs text-amber-400 font-mono">
                                 Total Delay Interest: <strong>+ ₹ {Number(liveCalculations.delay_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
                             </div>
+                        </div>
+
+                        {/* Statutory Delay Cap Notice (Rule 11(4)) */}
+                        {liveCalculations.has_exceeded_delay_cap && (
+                            !delayRemarks.trim() ? (
+                                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 flex items-start gap-3 shadow-lg shadow-amber-950/30">
+                                    <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                                    <div className="space-y-1 text-xs">
+                                        <div className="font-bold text-amber-300 flex items-center gap-2">
+                                            <span>Statutory 6-Month Delay Interest Cap Enforced (Rule 11(4))</span>
+                                            <span className="text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-full font-mono">
+                                                Months 7+ Capped at ₹0.00
+                                            </span>
+                                        </div>
+                                        <p className="text-amber-200/80 leading-relaxed">
+                                            This case contains <strong className="text-white">{liveCalculations.delay_rows.length} delayed months</strong>. Under Rule 11(4) of Central GPF Rules 1960, interest on delayed final payment is capped at 6 months. To allow interest for months 7+, the officer must provide a formal <strong>Delay Justification / Remarks</strong> below explaining why the delay was beyond the subscriber's control.
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-200 flex items-start gap-3 shadow-lg shadow-emerald-950/30">
+                                    <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                                    <div className="space-y-1 text-xs">
+                                        <div className="font-bold text-emerald-300 flex items-center gap-2">
+                                            <span>Delay Justification Recorded — Months 7+ Interest Authorized</span>
+                                            <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full font-mono">
+                                                All {liveCalculations.delay_rows.length} Months Unlocked
+                                            </span>
+                                        </div>
+                                        <p className="text-emerald-200/80 leading-relaxed">
+                                            Administrative justification recorded. Delay interest is computed for all {liveCalculations.delay_rows.length} months.
+                                            {delay_approved_by && (
+                                                <span className="block mt-1 text-[11px] text-emerald-400 font-mono">
+                                                    Sanctioned / Approved by: <strong>{delay_approved_by}</strong> on {delay_approved_at}
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                            )
+                        )}
+
+                        {/* Delay Justification Textarea Card */}
+                        <div className="glass-panel p-4 rounded-xl border border-amber-500/30 bg-slate-900/60 space-y-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                <label className="text-xs font-bold text-amber-300 flex items-center gap-2 font-mono">
+                                    <span>Administrative Delay Justification / Remarks</span>
+                                    {liveCalculations.has_exceeded_delay_cap && !delayRemarks.trim() ? (
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-sans font-semibold">
+                                            Required to unlock months 7+
+                                        </span>
+                                    ) : (
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-sans">
+                                            Rule 11(4) Audit Record
+                                        </span>
+                                    )}
+                                </label>
+                                {delay_approved_by && (
+                                    <span className="text-[11px] text-slate-400 font-mono">
+                                        Sanctioned by: <span className="text-indigo-300 font-semibold">{delay_approved_by}</span> ({delay_approved_at})
+                                    </span>
+                                )}
+                            </div>
+                            <textarea
+                                value={delayRemarks}
+                                onChange={(e) => setDelayRemarks(e.target.value)}
+                                rows={2}
+                                placeholder="Enter reason for payment delay beyond 6 months (e.g. 'Late receipt of service book from DDO', 'Pending court succession dispute', 'Administrative delay not attributable to subscriber'). Required by Sr. Accounts Officer to sanction interest for months 7+."
+                                className="w-full px-3 py-2 bg-slate-950/80 border border-slate-700 focus:border-amber-500 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none transition font-sans"
+                            />
                         </div>
 
                         <div className="glass-panel rounded-2xl overflow-hidden shadow-2xl border border-amber-500/30 bg-amber-950/10">
@@ -775,7 +911,7 @@ export default function CalculationSheet({
                                             return (
                                                 <tr key={originalIndex} className="hover:bg-amber-950/20 transition">
                                                     <td className="py-2 px-3">
-                                                        <div className="flex items-center gap-1.5">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
                                                             <input
                                                                 type="date"
                                                                 value={row.pay_slip_date}
@@ -785,6 +921,30 @@ export default function CalculationSheet({
                                                             <span className="text-[10px] text-amber-400/70 font-sans">
                                                                 M{row.accounting_month}
                                                             </span>
+                                                            {row.delay_month_number && (
+                                                                <span
+                                                                    className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-semibold ${
+                                                                        row.delay_month_number <= 6
+                                                                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                                                            : row.is_delay_capped
+                                                                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                                                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                                    }`}
+                                                                    title={
+                                                                        row.delay_month_number <= 6
+                                                                            ? `Delay Month ${row.delay_month_number} of 6 (Statutory Rule 11(4))`
+                                                                            : row.is_delay_capped
+                                                                            ? `Delay Month ${row.delay_month_number} (Capped at ₹0 without Justification)`
+                                                                            : `Delay Month ${row.delay_month_number} (Authorized with Justification)`
+                                                                    }
+                                                                >
+                                                                    {row.delay_month_number <= 6
+                                                                        ? `D-M${row.delay_month_number} (Statutory)`
+                                                                        : row.is_delay_capped
+                                                                        ? `D-M${row.delay_month_number} (Capped: ₹0)`
+                                                                        : `D-M${row.delay_month_number} (Approved 7+)`}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="py-2 px-3 text-right text-amber-200/80">
@@ -826,8 +986,24 @@ export default function CalculationSheet({
                                                     <td className="py-2 px-3 text-right text-amber-200 font-semibold">
                                                         ₹ {Number(row.progressive_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                     </td>
-                                                    <td className="py-2 px-3 text-right text-amber-400 font-bold">
-                                                        ₹ {Number(row.delay_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    <td className="py-2 px-3 text-right">
+                                                        {row.is_delay_capped ? (
+                                                            <div className="flex flex-col items-end">
+                                                                <span className="text-rose-400 line-through text-[10px]">
+                                                                    ₹ {Number(((row.progressive_balance * row.rate_of_interest) / 1200)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                </span>
+                                                                <span className="text-rose-400 font-bold text-xs">
+                                                                    ₹ 0.00
+                                                                </span>
+                                                                <span className="text-[9px] text-rose-400/80 font-sans">
+                                                                    Capped (Rule 11(4))
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-amber-400 font-bold">
+                                                                ₹ {Number(row.delay_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td className="py-2 px-3 text-center">
                                                         <button

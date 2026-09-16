@@ -2,6 +2,7 @@
 
 namespace App\Services\Calculation;
 
+use App\Enums\CaseType;
 use App\Models\CalculationMonthlyBreakdown;
 use App\Models\CalculationRun;
 use App\Models\InwardCase;
@@ -50,12 +51,15 @@ class GpfCalculationEngine
                     || $case->case_type === \App\Enums\CaseType::DEATH_IN_SERVICE,
             ]);
 
+            $delayJustification = $ledgerEntries['delay_justification'] ?? $case->delay_justification ?? null;
             $months = collect($ledgerEntries['monthly_entries'] ?? []);
-            $ledgerResult = $this->processMonthlyLedger($run, $months, $openingBal, $cutoffDate);
+            $ledgerResult = $this->processMonthlyLedger($run, $months, $openingBal, $cutoffDate, $case, $delayJustification);
             $processedBreakdowns = $ledgerResult['breakdowns'];
             $delayPeriodStarted = $ledgerResult['delay_period_started'];
             $delayOpeningBal = $ledgerResult['delay_opening_bal'];
             $cutMonthYearMonth = $ledgerResult['cut_month_year_month'];
+            $delayMonthsCount = $ledgerResult['delay_months_count'];
+            $hasExceededDelayCap = $ledgerResult['has_exceeded_delay_cap'];
 
             // Compute cumulative totals across all months
             $totalSub = '0.0000';
@@ -121,7 +125,17 @@ class GpfCalculationEngine
                 'total_interest_computed' => round((float) $totalInt, 2),
                 'dlis_amount' => $dlisAmount,
                 'final_closing_balance' => round((float) $finalBal, 0), // Statutory nearest whole rupee
+                'delay_justification' => $delayJustification,
+                'delay_months_count' => $delayMonthsCount,
+                'has_exceeded_delay_cap' => $hasExceededDelayCap,
             ]);
+
+            // Persist delay justification to case if provided and changed
+            if (!empty($delayJustification) && $case->delay_justification !== $delayJustification) {
+                $case->update([
+                    'delay_justification' => $delayJustification,
+                ]);
+            }
 
             // If nominees exist, partition the pro-rata shares
             $this->partitionNomineeShares($case, (float) $run->final_closing_balance);
@@ -135,9 +149,9 @@ class GpfCalculationEngine
      * following statutory AG Tripura GPF progressive compounding rules.
      * Aligned with legacy calculate.php and calculation_sheet.php.
      *
-     * @return array{breakdowns: Collection, delay_period_started: bool, delay_opening_bal: string, cut_month_year_month: string}
+     * @return array{breakdowns: Collection, delay_period_started: bool, delay_opening_bal: string, cut_month_year_month: string, delay_months_count: int, has_exceeded_delay_cap: bool}
      */
-    protected function processMonthlyLedger(CalculationRun $run, Collection $entries, string $openingBal, Carbon $cutoffDate): array
+    protected function processMonthlyLedger(CalculationRun $run, Collection $entries, string $openingBal, Carbon $cutoffDate, ?InwardCase $case = null, ?string $delayJustification = null): array
     {
         $breakdowns = collect();
         $currentOpening = $openingBal;
@@ -149,6 +163,20 @@ class GpfCalculationEngine
         $delayPeriodStarted = false;
         $delayOpeningBal = '0.0000';
         $delayMonthCount = 0;
+
+        // Statutory Rule: If case type is superannuation and subscriber retired on the month-end,
+        // subscriber completed full service for that month and is entitled to full interest.
+        $isSuperannuation = false;
+        $isMonthEndRetirement = false;
+        $eventYM = null;
+        if ($case) {
+            $isSuperannuation = ($case->case_type === CaseType::NORMAL_SUPERANNUATION || $case->pension_type_id === '1');
+            if ($case->event_date) {
+                $eDate = Carbon::parse($case->event_date);
+                $isMonthEndRetirement = ($eDate->day === $eDate->daysInMonth);
+                $eventYM = $eDate->format('Y-m');
+            }
+        }
 
         // Detect explicit Cut Month in the ledger (matching legacy GPF_ACCOUNT_CALCULATION WHERE CUT_MONTH='Y')
         $cutMonthEntry = $entries->first(fn ($item) => !empty($item['is_cut_month']));
@@ -171,6 +199,11 @@ class GpfCalculationEngine
                 : ($calMonth === $cutMonthYearMonth);
             $isAdj = (bool) ($item['is_adjustment'] ?? false);
             $isDelayed = ($calMonth > $cutMonthYearMonth);
+
+            // In superannuation, if subscriber retired on the month-end, they served the full month
+            // and are entitled to interest for that retirement month.
+            $isEventMonth = ($eventYM !== null && $calMonth === $eventYM);
+            $earnsInterestInCutMonth = ($isCutMonth && $isSuperannuation && $isMonthEndRetirement && $isEventMonth);
 
             // Determine rate of interest for this month
             $rate = (string) ($item['rate_of_interest'] ?? InterestRateSlab::getRateForDate($paySlipDate->toDateString()) ?? config('gpf.interest.default_rate', 7.1000));
@@ -207,8 +240,9 @@ class GpfCalculationEngine
             // Calculate Progressive Balance & Row-Level Opening Balance
             $rowOpeningBalance = '0.0000';
 
-            if ($isCutMonth) {
-                // Cut month: values are suppressed for interest calculation (progressive = 0, interest = 0)
+            if ($isCutMonth && !$earnsInterestInCutMonth) {
+                // Cut month with interest suppression (e.g. mid-month retirement or standard cut month):
+                // progressive = 0, interest = 0.
                 // However, following legacy calculate.php line 120-126, transactions in cut month
                 // are credited/debited into the accumulated principal carried into the delay period.
                 $progressive = '0.0000';
@@ -234,12 +268,22 @@ class GpfCalculationEngine
                 $runningProgressive = bcadd($runningProgressive, $monthStep, $this->scale);
                 $progressive = $runningProgressive;
 
-                $numerator = bcmul($progressive, $rate, $this->scale);
-                $monthlyInt = bcdiv($numerator, '1200', $this->scale);
-                $actualInt = '0.0000';
-                $delayInt = (string) round((float) $monthlyInt, 2);
+                // Statutory 6-Month Cap Rule (Central GPF Rule 11(4)):
+                // Delay interest is capped at maximum 6 months.
+                // If delay reaches Month 7 or beyond (7+), it requires an official Delay Justification / Remarks
+                // approved by the Sr. Accounts Officer. Without justification, interest is suppressed to 0.00.
+                $hasValidJustification = !empty(trim((string) $delayJustification));
+                if ($delayMonthCount > 6 && !$hasValidJustification) {
+                    $actualInt = '0.0000';
+                    $delayInt = '0.0000';
+                } else {
+                    $numerator = bcmul($progressive, $rate, $this->scale);
+                    $monthlyInt = bcdiv($numerator, '1200', $this->scale);
+                    $actualInt = '0.0000';
+                    $delayInt = (string) round((float) $monthlyInt, 2);
+                }
             } else {
-                // Normal month within active FY
+                // Normal month within active FY OR Superannuation retirement month where subscriber retired on month-end
                 $rowOpeningBalance = ($accountingMonth === 1) ? $currentOpening : '0.0000';
 
                 $monthStep = bcsub($effectiveDeposit, $withdrawal, $this->scale);
@@ -293,6 +337,8 @@ class GpfCalculationEngine
             'delay_period_started' => $delayPeriodStarted,
             'delay_opening_bal' => $delayOpeningBal,
             'cut_month_year_month' => $cutMonthYearMonth,
+            'delay_months_count' => $delayMonthCount,
+            'has_exceeded_delay_cap' => ($delayMonthCount > 6),
         ];
     }
 

@@ -70,6 +70,8 @@ class CalculationController extends Controller
             ])->toArray();
         }
 
+        $case->loadMissing(['delayApprover']);
+
         return Inertia::render('Calculation/CalculationSheet', [
             'case_data' => $case,
             'calculation_run' => $latestRun,
@@ -77,6 +79,9 @@ class CalculationController extends Controller
             'opening_balance' => $openingBalance,
             'opening_fin_year' => $openingFinYear,
             'monthly_ledger' => $monthlyLedger,
+            'delay_justification' => $case->delay_justification ?? $latestRun?->delay_justification ?? '',
+            'delay_approved_by' => $case->delayApprover?->name,
+            'delay_approved_at' => $case->delay_approved_at?->format('d-M-Y H:i'),
         ]);
     }
 
@@ -87,6 +92,7 @@ class CalculationController extends Controller
         $validated = $request->validate([
             'opening_balance' => ['required', 'numeric'],
             'opening_fin_year' => ['required', 'string'],
+            'delay_justification' => ['nullable', 'string', 'max:2000'],
             'monthly_entries' => ['required', 'array', 'min:1'],
             'monthly_entries.*.pay_slip_date' => ['required', 'date'],
             'monthly_entries.*.deposit' => ['required', 'numeric'],
@@ -97,7 +103,22 @@ class CalculationController extends Controller
             'monthly_entries.*.is_adjustment' => ['nullable', 'boolean'],
         ]);
 
+        if (!empty($validated['delay_justification'])) {
+            $case->delay_justification = $validated['delay_justification'];
+            if (in_array($request->user()->role, ['approver', 'admin'])) {
+                $case->delay_approved_by = $request->user()->id;
+                $case->delay_approved_at = now();
+            }
+            $case->save();
+        }
+
         $run = $this->calculationEngine->calculate($case, $validated, $request->user()->id);
+
+        if ($run->delay_approved_by === null && in_array($request->user()->role, ['approver', 'admin']) && !empty($run->delay_justification)) {
+            $run->update([
+                'delay_approved_by' => $request->user()->id,
+            ]);
+        }
 
         // Advance status to CALCULATED (State 4)
         if ($case->current_status->value < CaseWorkflowStatus::CALCULATED->value) {

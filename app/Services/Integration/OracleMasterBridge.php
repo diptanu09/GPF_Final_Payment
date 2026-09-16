@@ -947,6 +947,17 @@ class OracleMasterBridge
 
         $cutoffYM = $cutoffDate->format('Y-m');
 
+        // Statutory Rule: If case type is superannuation and subscriber retired on the month-end,
+        // subscriber completed full service for that month and is entitled to full interest.
+        $isSuperannuation = ($case->case_type === \App\Enums\CaseType::NORMAL_SUPERANNUATION || $case->pension_type_id === '1');
+        $isMonthEndRetirement = false;
+        $eventYM = null;
+        if ($case->event_date) {
+            $eDate = Carbon::parse($case->event_date);
+            $isMonthEndRetirement = ($eDate->day === $eDate->daysInMonth);
+            $eventYM = $eDate->format('Y-m');
+        }
+
         while ($currentDate->lessThanOrEqualTo($calcEndDate)) {
             $calMonth = $currentDate->format('Y-m');
             $m = $currentDate->month;
@@ -955,6 +966,8 @@ class OracleMasterBridge
             $accountingMonth = ($m >= 4) ? $m - 3 : $m + 9;
             $isCutMonth = ($calMonth === $cutoffYM);
             $isDelayed = ($calMonth > $cutoffYM);
+            $isEventMonth = ($eventYM !== null && $calMonth === $eventYM);
+            $earnsInterestInCutMonth = ($isCutMonth && $isSuperannuation && $isMonthEndRetirement && $isEventMonth);
 
             // Transition to new FY (normal period): capitalize prior year's interest & net transactions
             if (!$isDelayed && $currentFY !== null && $finYear !== $currentFY) {
@@ -982,7 +995,7 @@ class OracleMasterBridge
 
             $rowOpening = 0.00;
 
-            if ($isCutMonth) {
+            if ($isCutMonth && !$earnsInterestInCutMonth) {
                 // Cut Month: Values suppressed for interest calculation (progressive = 0, interest = 0)
                 // Credit/debit transactions in cut month are included in accumulated principal
                 $runningProgressive = 0.00;
@@ -1002,7 +1015,16 @@ class OracleMasterBridge
                     $rowOpening = 0.00;
                 }
                 $monthlyInt = 0.00;
-                $delayInt = round(($runningProgressive * $rate) / 1200, 2);
+
+                // Statutory 6-Month Delay Cap Rule (Central GPF Rule 11(4)):
+                // Delay interest is capped at maximum 6 months.
+                // Month 7+ requires Delay Justification / Remarks. Without it, interest is 0.00.
+                $hasValidJustification = !empty(trim((string) $case->delay_justification));
+                if ($delayMonthCount > 6 && !$hasValidJustification) {
+                    $delayInt = 0.00;
+                } else {
+                    $delayInt = round(($runningProgressive * $rate) / 1200, 2);
+                }
             } else {
                 // Normal Active Period
                 $rowOpening = ($accountingMonth === 1) ? $runningOpening : 0.00;

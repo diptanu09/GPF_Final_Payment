@@ -102,7 +102,30 @@ When Oracle 11g host is unreachable or when running automated CI tests, `OracleM
 
 ---
 
-## 5. Development & Build Commands
+## 5. Delay Interest Calculation & Statutory 6-Month Cap (Rule 11(4))
+
+### Statutory Rule & Policy
+Under Rule 11(4) of Central GPF Rules 1960:
+1. Interest on delayed final payment is admissible for a maximum duration of **6 months**.
+2. If payment is delayed for **7 months or beyond (7+)**, delayed interest for months 7+ is strictly **₹0.00 (suppressed/capped)** unless an official **Delay Justification / Remarks** is recorded and approved by the Sr. Accounts Officer (`approver`) or Directorate (`admin`).
+3. When formal justification is entered, interest is unlocked and computed for all authorized extended delay months.
+
+### Architecture & Fields
+- **Database Schema**:
+  - `gpffp.inward_cases`: `delay_justification` (text), `delay_approved_by` (bigint -> users.id), `delay_approved_at` (timestamp).
+  - `gpffp.calculation_runs`: `delay_justification`, `delay_approved_by`, `delay_months_count` (int), `has_exceeded_delay_cap` (bool).
+- **Engine Logic (`GpfCalculationEngine.php`)**:
+  - During delayed period processing, tracks sequential delay month index (`$delayMonthCount`).
+  - If `$delayMonthCount > 6` and `empty($delayJustification)`, sets `$delayInt = '0.0000'` (strictly ₹0.00).
+  - If `$delayJustification` is non-empty, calculates standard monthly delayed interest: `round((progressive * rate) / 1200, 2)`.
+- **UI Interaction (`CalculationSheet.jsx`)**:
+  - Automatically detects delay months count (`delay_rows.length > 6`).
+  - If uncapped without justification: displays amber warning banner and strikethrough `₹ 0.00 (Capped: Rule 11(4))` badge on rows 7+.
+  - When officer enters justification: displays emerald unlocked banner, authorizer badge, and recalculates total payable in real-time.
+
+---
+
+## 6. Development & Build Commands
 
 ```powershell
 # Run backend dev server:
