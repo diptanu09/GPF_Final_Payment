@@ -51,7 +51,11 @@ class GpfCalculationEngine
             ]);
 
             $months = collect($ledgerEntries['monthly_entries'] ?? []);
-            $processedBreakdowns = $this->processMonthlyLedger($run, $months, $openingBal, $cutoffDate);
+            $ledgerResult = $this->processMonthlyLedger($run, $months, $openingBal, $cutoffDate);
+            $processedBreakdowns = $ledgerResult['breakdowns'];
+            $delayPeriodStarted = $ledgerResult['delay_period_started'];
+            $delayOpeningBal = $ledgerResult['delay_opening_bal'];
+            $cutMonthYearMonth = $ledgerResult['cut_month_year_month'];
 
             // Compute cumulative totals across all months
             $totalSub = '0.0000';
@@ -74,11 +78,31 @@ class GpfCalculationEngine
 
             $totalInt = bcadd($actualInt, $delayInt, $this->scale);
             
-            // Final balance = Opening + Subscriptions + Excess - Withdrawals + Interest
-            $finalBal = bcadd($openingBal, $totalSub, $this->scale);
-            $finalBal = bcadd($finalBal, $excessDep, $this->scale);
-            $finalBal = bcsub($finalBal, $totalWith, $this->scale);
-            $finalBal = bcadd($finalBal, $totalInt, $this->scale);
+            // Final balance computation (aligned with legacy calculate.php lines 220-265):
+            // When a delay period exists, closing balance equals:
+            // delayOpeningBal + delayDeposits + excessDep - delayWithdrawals + delayInterest
+            // Otherwise, openingBal + totalSub + excessDep - totalWith + actualInt
+            if ($delayPeriodStarted) {
+                $delayWithdrawals = '0.0000';
+                $delayDeposits = '0.0000';
+                foreach ($processedBreakdowns as $row) {
+                    if (Carbon::parse($row->pay_slip_date)->format('Y-m') > $cutMonthYearMonth) {
+                        if ($row->interest_on_deposit) {
+                            $delayDeposits = bcadd($delayDeposits, (string) $row->deposit, $this->scale);
+                        }
+                        $delayWithdrawals = bcadd($delayWithdrawals, (string) $row->withdrawal, $this->scale);
+                    }
+                }
+                $finalBal = bcadd($delayOpeningBal, $delayDeposits, $this->scale);
+                $finalBal = bcadd($finalBal, $excessDep, $this->scale);
+                $finalBal = bcsub($finalBal, $delayWithdrawals, $this->scale);
+                $finalBal = bcadd($finalBal, $delayInt, $this->scale);
+            } else {
+                $finalBal = bcadd($openingBal, $totalSub, $this->scale);
+                $finalBal = bcadd($finalBal, $excessDep, $this->scale);
+                $finalBal = bcsub($finalBal, $totalWith, $this->scale);
+                $finalBal = bcadd($finalBal, $actualInt, $this->scale);
+            }
 
             // DLIS Calculation
             $dlisAmount = 0.00;
@@ -110,8 +134,10 @@ class GpfCalculationEngine
      * Process month-by-month compounding and annual capitalization
      * following statutory AG Tripura GPF progressive compounding rules.
      * Aligned with legacy calculate.php and calculation_sheet.php.
+     *
+     * @return array{breakdowns: Collection, delay_period_started: bool, delay_opening_bal: string, cut_month_year_month: string}
      */
-    protected function processMonthlyLedger(CalculationRun $run, Collection $entries, string $openingBal, Carbon $cutoffDate): Collection
+    protected function processMonthlyLedger(CalculationRun $run, Collection $entries, string $openingBal, Carbon $cutoffDate): array
     {
         $breakdowns = collect();
         $currentOpening = $openingBal;
@@ -126,9 +152,9 @@ class GpfCalculationEngine
 
         // Detect explicit Cut Month in the ledger (matching legacy GPF_ACCOUNT_CALCULATION WHERE CUT_MONTH='Y')
         $cutMonthEntry = $entries->first(fn ($item) => !empty($item['is_cut_month']));
-        $effectiveCutoffDate = $cutMonthEntry 
-            ? Carbon::parse($cutMonthEntry['pay_slip_date'])->endOfMonth() 
-            : $cutoffDate;
+        $cutMonthYearMonth = $cutMonthEntry 
+            ? Carbon::parse($cutMonthEntry['pay_slip_date'])->format('Y-m') 
+            : $cutoffDate->format('Y-m');
 
         // Group entries by financial year to ensure correct annual capitalization
         foreach ($entries as $index => $item) {
@@ -140,9 +166,11 @@ class GpfCalculationEngine
             $deposit = (string) ($item['deposit'] ?? 0.00);
             $withdrawal = (string) ($item['withdrawal'] ?? 0.00);
             $intOnDeposit = (bool) ($item['interest_on_deposit'] ?? true);
-            $isCutMonth = (bool) ($item['is_cut_month'] ?? false);
+            $isCutMonth = $cutMonthEntry 
+                ? ($calMonth === $cutMonthYearMonth && !empty($item['is_cut_month']))
+                : ($calMonth === $cutMonthYearMonth);
             $isAdj = (bool) ($item['is_adjustment'] ?? false);
-            $isDelayed = $paySlipDate->greaterThan($effectiveCutoffDate);
+            $isDelayed = ($calMonth > $cutMonthYearMonth);
 
             // Determine rate of interest for this month
             $rate = (string) ($item['rate_of_interest'] ?? InterestRateSlab::getRateForDate($paySlipDate->toDateString()) ?? config('gpf.interest.default_rate', 7.1000));
@@ -260,7 +288,12 @@ class GpfCalculationEngine
             $breakdowns->push($breakdown);
         }
 
-        return $breakdowns;
+        return [
+            'breakdowns' => $breakdowns,
+            'delay_period_started' => $delayPeriodStarted,
+            'delay_opening_bal' => $delayOpeningBal,
+            'cut_month_year_month' => $cutMonthYearMonth,
+        ];
     }
 
     /**

@@ -40,12 +40,22 @@ export default function CalculationSheet({
         calculation_run ? Boolean(calculation_run.dlis_admissible) : (case_data.case_type === 'FAM' || case_data.case_type === 'D')
     );
 
-    // Sync state when props change
+    // Sync state when props change and ensure an active Cut Month is selected
     useEffect(() => {
         setOpeningBal(opening_balance || 0);
         setFinYear(opening_fin_year || '2023-2024');
-        setRows(monthly_ledger || []);
-    }, [opening_balance, opening_fin_year, monthly_ledger]);
+        let initialRows = monthly_ledger || [];
+        if (initialRows.length > 0 && !initialRows.some((r) => r.is_cut_month)) {
+            const eventYM = case_data?.event_date ? case_data.event_date.slice(0, 7) : null;
+            const targetIdx = eventYM 
+                ? initialRows.findIndex((r) => r.pay_slip_date && r.pay_slip_date.slice(0, 7) === eventYM)
+                : -1;
+            if (targetIdx !== -1) {
+                initialRows = initialRows.map((r, i) => ({ ...r, is_cut_month: i === targetIdx }));
+            }
+        }
+        setRows(initialRows);
+    }, [opening_balance, opening_fin_year, monthly_ledger, case_data?.event_date]);
 
     const { data, setData, post, processing } = useForm({
         opening_balance: openingBal,
@@ -68,22 +78,20 @@ export default function CalculationSheet({
         );
     };
 
-    // Update individual cell in ledger
+    // Update individual cell in ledger using exact index
     const updateRow = (index, field, value) => {
-        const updated = [...rows];
-        updated[index] = { ...updated[index], [field]: value };
-
-        // If toggling cut month to true, ensure subsequent months default to delayed
-        if (field === 'is_cut_month' && value === true) {
-            for (let i = 0; i < updated.length; i++) {
-                if (i !== index && updated[i].is_cut_month) {
-                    updated[i].is_cut_month = false;
+        const updated = rows.map((row, i) => {
+            if (i !== index) {
+                // If setting cut month on another row, uncheck cut month on this row
+                if (field === 'is_cut_month' && value === true && row.is_cut_month) {
+                    return { ...row, is_cut_month: false };
                 }
+                return row;
             }
-        }
+            return { ...row, [field]: value };
+        });
 
         setRows(updated);
-        setData('monthly_entries', updated);
     };
 
     // Add a new monthly entry
@@ -147,15 +155,19 @@ export default function CalculationSheet({
         let cutMonthPassed = false;
         let delayOpeningBal = 0;
 
-        // Find index of Cut Month if explicitly marked
-        const cutMonthIdx = rows.findIndex((r) => r.is_cut_month);
+        // Detect index of Cut Month in rows
+        let cutMonthIdx = rows.findIndex((r) => r.is_cut_month);
+        if (cutMonthIdx === -1 && case_data?.event_date) {
+            const eventYM = case_data.event_date.slice(0, 7);
+            cutMonthIdx = rows.findIndex((r) => r.pay_slip_date && r.pay_slip_date.slice(0, 7) === eventYM);
+        }
 
         const calculatedRows = rows.map((r, idx) => {
             const dep = parseFloat(r.deposit) || 0;
             const withdr = parseFloat(r.withdrawal) || 0;
             const rate = parseFloat(r.rate_of_interest) || 7.1;
             const intOnDep = r.interest_on_deposit !== false;
-            const isCutMonth = Boolean(r.is_cut_month);
+            const isCutMonth = (idx === cutMonthIdx);
             const finY = r.financial_year;
 
             // Is this row in the delayed period (after Cut Month)?
@@ -197,12 +209,12 @@ export default function CalculationSheet({
             let mDelayInterest = 0;
 
             if (isCutMonth) {
-                // Cut Month: Suppressed for interest
+                // Cut Month: Suppressed for interest (progressive = 0, interest = 0)
                 runningProgressive = 0;
                 mActualInterest = 0;
                 mDelayInterest = 0;
             } else if (isDelayRow) {
-                // Delayed Interest Month
+                // Delayed Interest Month (simple monthly interest without compounding)
                 if (runningProgressive === 0) {
                     runningProgressive = delayOpeningBal + effectiveDep - withdr;
                 } else {
@@ -231,6 +243,8 @@ export default function CalculationSheet({
 
             return {
                 ...r,
+                _rowIndex: idx,
+                is_cut_month: isCutMonth,
                 is_delayed: isDelayRow,
                 opening_balance: (r.accounting_month === 1 || (isDelayRow && idx === cutMonthIdx + 1)) ? Math.round(currentOpening * 100) / 100 : 0,
                 progressive_balance: Math.round(runningProgressive * 100) / 100,
@@ -239,18 +253,13 @@ export default function CalculationSheet({
             };
         });
 
-        const totalInterestCombined = cumulativeActualInt + cumulativeDelayInt;
-        const finalAmount = Math.round(
-            (parseFloat(openingBal) || 0) + totalSub + totalExcess - totalWith + totalInterestCombined
-        );
-
         // Partition rows into Normal FY Groups vs Delay Period Group
         const normalRows = calculatedRows.filter((r) => !r.is_delayed);
         const delayRows = calculatedRows.filter((r) => r.is_delayed);
 
         // Group normal rows by Financial Year
         const groupedNormal = {};
-        normalRows.forEach((r, originalIdx) => {
+        normalRows.forEach((r) => {
             const fy = r.financial_year || '2024-2025';
             if (!groupedNormal[fy]) {
                 groupedNormal[fy] = {
@@ -263,7 +272,7 @@ export default function CalculationSheet({
                     closing_balance: 0,
                 };
             }
-            groupedNormal[fy].rows.push({ ...r, _originalIdx: originalIdx });
+            groupedNormal[fy].rows.push(r);
             groupedNormal[fy].total_deposit += (parseFloat(r.deposit) || 0);
             groupedNormal[fy].total_withdrawal += (parseFloat(r.withdrawal) || 0);
             groupedNormal[fy].total_interest += (parseFloat(r.actual_interest) || 0);
@@ -277,14 +286,22 @@ export default function CalculationSheet({
             group.closing_balance = Math.round(op + group.total_deposit - group.total_withdrawal + group.total_interest_rounded);
         });
 
-        // Delay Summary Calculations
+        // Delay Summary Calculations (matching legacy calculation_sheet.php lines 543-556)
+        const delayDep = delayRows.reduce((acc, r) => acc + (parseFloat(r.deposit) || 0), 0);
+        const delayWith = delayRows.reduce((acc, r) => acc + (parseFloat(r.withdrawal) || 0), 0);
         const delaySummary = {
             opening_balance: delayOpeningBal,
-            total_deposit: delayRows.reduce((acc, r) => acc + (parseFloat(r.deposit) || 0), 0),
-            total_withdrawal: delayRows.reduce((acc, r) => acc + (parseFloat(r.withdrawal) || 0), 0),
+            total_deposit: delayDep,
+            total_withdrawal: delayWith,
             total_delay_interest: Math.round(cumulativeDelayInt),
-            final_closing_balance: Math.round(delayOpeningBal + delayRows.reduce((acc, r) => acc + (parseFloat(r.deposit) || 0), 0) - delayRows.reduce((acc, r) => acc + (parseFloat(r.withdrawal) || 0), 0) + cumulativeDelayInt),
+            final_closing_balance: Math.round(delayOpeningBal + delayDep + totalExcess - delayWith + cumulativeDelayInt),
         };
+
+        const totalInterestCombined = cumulativeActualInt + cumulativeDelayInt;
+        // If delay period exists, final closing balance aligns with delay summary final closing balance
+        const finalAmount = delayRows.length > 0
+            ? delaySummary.final_closing_balance
+            : Math.round((parseFloat(openingBal) || 0) + totalSub + totalExcess - totalWith + totalInterestCombined);
 
         // DLIS calculation (36 months progressive average up to ₹60,000)
         let dlisAmount = 0;
@@ -304,6 +321,7 @@ export default function CalculationSheet({
             delay_rows: delayRows,
             delay_summary: delaySummary,
             has_delay: delayRows.length > 0,
+            cut_month_idx: cutMonthIdx,
             total_subscriptions: totalSub,
             total_excess: totalExcess,
             total_withdrawals: totalWith,
@@ -314,14 +332,15 @@ export default function CalculationSheet({
             dlis_amount: dlisAmount,
             grand_payable: finalAmount + dlisAmount,
         };
-    }, [openingBal, rows, dlisAdmissible]);
+    }, [openingBal, rows, dlisAdmissible, case_data?.event_date]);
 
     const submit = (e) => {
-        e.preventDefault();
-        setData('opening_balance', openingBal);
-        setData('opening_fin_year', finYear);
-        setData('monthly_entries', rows);
-        post(`/calculation/${case_data.id}`);
+        if (e && e.preventDefault) e.preventDefault();
+        router.post(`/calculation/${case_data.id}`, {
+            opening_balance: openingBal,
+            opening_fin_year: finYear,
+            monthly_entries: rows,
+        });
     };
 
     return (
@@ -575,7 +594,7 @@ export default function CalculationSheet({
                                         </thead>
                                         <tbody className="divide-y divide-slate-800/60 font-mono">
                                             {group.rows.map((row) => {
-                                                const originalIndex = row._originalIdx;
+                                                const originalIndex = row._rowIndex;
                                                 const isCut = row.is_cut_month;
                                                 const noInt = row.interest_on_deposit === false;
 
@@ -745,12 +764,13 @@ export default function CalculationSheet({
                                             <th className="py-3 px-3 text-right">Rate %</th>
                                             <th className="py-3 px-3 text-right">Progressive (₹)</th>
                                             <th className="py-3 px-3 text-right text-amber-300">Delay Int (₹)</th>
+                                            <th className="py-3 px-3 text-center" title="Set this month as the Cut Month">Set Cut Month</th>
                                             <th className="py-3 px-2 text-center">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-amber-500/10 font-mono">
                                         {liveCalculations.delay_rows.map((row) => {
-                                            const originalIndex = rows.findIndex((orig) => orig.pay_slip_date === row.pay_slip_date);
+                                            const originalIndex = row._rowIndex;
 
                                             return (
                                                 <tr key={originalIndex} className="hover:bg-amber-950/20 transition">
@@ -809,6 +829,17 @@ export default function CalculationSheet({
                                                     <td className="py-2 px-3 text-right text-amber-400 font-bold">
                                                         ₹ {Number(row.delay_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                     </td>
+                                                    <td className="py-2 px-3 text-center">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => updateRow(originalIndex, 'is_cut_month', true)}
+                                                            className="px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-[10px] font-sans font-semibold transition inline-flex items-center gap-1"
+                                                            title="Make this month the Cut Month"
+                                                        >
+                                                            <CheckCircle2 className="w-3 h-3 text-rose-400" />
+                                                            <span>Make Cut Month</span>
+                                                        </button>
+                                                    </td>
                                                     <td className="py-2 px-2 text-center">
                                                         <button
                                                             type="button"
@@ -847,7 +878,7 @@ export default function CalculationSheet({
                                             <td className="py-3 px-3 text-right text-amber-400 text-sm font-extrabold">
                                                 ₹ {Number(liveCalculations.delay_summary.total_delay_interest).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                             </td>
-                                            <td className="py-3 px-2 text-center text-emerald-400">
+                                            <td colSpan={2} className="py-3 px-2 text-center text-emerald-400">
                                                 ✓
                                             </td>
                                         </tr>

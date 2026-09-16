@@ -945,14 +945,16 @@ class OracleMasterBridge
         $delayOpeningBal = 0.00;
         $delayMonthCount = 0;
 
+        $cutoffYM = $cutoffDate->format('Y-m');
+
         while ($currentDate->lessThanOrEqualTo($calcEndDate)) {
             $calMonth = $currentDate->format('Y-m');
             $m = $currentDate->month;
             $y = $currentDate->year;
             $finYear = ($m >= 4) ? "$y-" . ($y + 1) : ($y - 1) . "-$y";
             $accountingMonth = ($m >= 4) ? $m - 3 : $m + 9;
-            $isCutMonth = $currentDate->isSameMonth($cutoffDate);
-            $isDelayed = $currentDate->greaterThan($cutoffDate);
+            $isCutMonth = ($calMonth === $cutoffYM);
+            $isDelayed = ($calMonth > $cutoffYM);
 
             // Transition to new FY (normal period): capitalize prior year's interest & net transactions
             if (!$isDelayed && $currentFY !== null && $finYear !== $currentFY) {
