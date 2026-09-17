@@ -75,12 +75,12 @@ export default function SecurityShieldAvatar({
     const current = statusConfig[state] || statusConfig.idle;
 
     return (
-        <div className="text-center space-y-3">
+        <div className="text-center space-y-2 sm:space-y-2.5">
             {/* Interactive Sovereign Emblem Badge Core */}
-            <div className="relative inline-flex items-center justify-center p-3">
+            <div className="relative inline-flex items-center justify-center p-2 sm:p-2.5">
                 {/* Rotating Outer Gyro Ring */}
                 <div
-                    className={`absolute -inset-2 rounded-full border border-dashed transition-all duration-700 pointer-events-none ${current.ringClass} ${
+                    className={`absolute -inset-1.5 sm:-inset-2 rounded-full border border-dashed transition-all duration-700 pointer-events-none ${current.ringClass} ${
                         state === 'processing'
                             ? 'animate-radar-spin-fast'
                             : state === 'username'
@@ -119,12 +119,12 @@ export default function SecurityShieldAvatar({
                     <img
                         src="/images/gpf_seal_badge.png"
                         alt="GPF Final Payment System Emblem"
-                        className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.65)]"
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-contain drop-shadow-[0_10px_25px_rgba(0,0,0,0.65)]"
                     />
 
                     {/* Reactive Status Micro-Badge (Bottom Right) */}
                     {current.subIcon && (
-                        <div className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-slate-900 border border-slate-700 shadow-lg shadow-black/60 flex items-center justify-center animate-pulse">
+                        <div className="absolute -bottom-1 -right-1 p-1 rounded-full bg-slate-900 border border-slate-700 shadow-lg shadow-black/60 flex items-center justify-center animate-pulse">
                             {current.subIcon}
                         </div>
                     )}
@@ -132,14 +132,14 @@ export default function SecurityShieldAvatar({
             </div>
 
             {/* Branding Details */}
-            <div className="space-y-1">
-                <p className="text-[10.5px] font-bold tracking-widest text-indigo-400 uppercase">
+            <div className="space-y-0.5">
+                <p className="text-[10px] sm:text-[10.5px] font-bold tracking-widest text-indigo-400 uppercase">
                     {title}
                 </p>
-                <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl drop-shadow-md">
+                <h1 className="text-lg font-extrabold tracking-tight text-white sm:text-2xl drop-shadow-md">
                     {heading}
                 </h1>
-                <p className="text-xs text-slate-400 font-medium">
+                <p className="text-[11px] sm:text-xs text-slate-400 font-medium max-w-sm sm:max-w-md mx-auto">
                     {subtitle}
                 </p>
             </div>
@@ -147,7 +147,7 @@ export default function SecurityShieldAvatar({
             {/* Dynamic Status Capsule */}
             <div className="flex justify-center pt-0.5">
                 <div
-                    className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-[10px] font-mono font-semibold tracking-wider uppercase border transition-all duration-300 shadow-sm ${current.badgeClass}`}
+                    className={`inline-flex items-center gap-2 px-3 py-0.5 sm:px-3.5 sm:py-1 rounded-full text-[9.5px] sm:text-[10px] font-mono font-semibold tracking-wider uppercase border transition-all duration-300 shadow-sm ${current.badgeClass}`}
                 >
                     <span className={`w-1.5 h-1.5 rounded-full ${current.dotClass}`} />
                     <span>{current.text}</span>

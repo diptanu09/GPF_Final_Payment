@@ -55,7 +55,7 @@ export default function InteractiveTiltCard({ children, className = '' }) {
                     transition: 'transform 0.18s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.25s ease',
                     transformStyle: 'preserve-3d',
                 }}
-                className={`relative rounded-2xl shadow-2xl shadow-black/70 border border-slate-800/80 backdrop-blur-xl bg-slate-900/80 overflow-hidden ${className}`}
+                className={`relative w-full rounded-2xl shadow-2xl shadow-black/70 border border-slate-800/80 backdrop-blur-xl bg-slate-900/80 overflow-hidden ${className}`}
             >
                 {/* Dynamic Cursor Spotlight Effect */}
                 <div
@@ -77,7 +77,7 @@ export default function InteractiveTiltCard({ children, className = '' }) {
                 />
 
                 {/* Card Content Layer */}
-                <div className="relative z-10">
+                <div className="relative z-10 w-full">
                     {children}
                 </div>
             </div>

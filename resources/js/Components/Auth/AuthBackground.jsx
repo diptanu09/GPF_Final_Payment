@@ -147,30 +147,30 @@ function AuthBackgroundContent({ children, className = '' }) {
     }, []);
 
     return (
-        <div className="relative min-h-screen w-full bg-slate-950 dark:bg-slate-950 overflow-hidden font-sans select-none">
-            {/* Ambient 3D Three.js Torus Knot Nexus */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30 z-0">
-                <ThreeAuthNexus height={600} className="w-full h-full max-w-2xl" />
+        <div className="relative min-h-screen w-full bg-slate-950 dark:bg-slate-950 overflow-x-hidden overflow-y-auto font-sans">
+            {/* Ambient 3D Three.js Torus Knot Nexus (full-screen viewport coverage, no rectangular cutoff) */}
+            <div className="fixed inset-0 pointer-events-none opacity-30 z-0 overflow-hidden">
+                <ThreeAuthNexus className="w-full h-full" />
             </div>
 
-            {/* Interactive Particle Network Canvas */}
+            {/* Interactive Particle Network Canvas (fixed to viewport) */}
             <canvas
                 ref={canvasRef}
-                className="absolute inset-0 pointer-events-none z-0 opacity-60"
+                className="fixed inset-0 pointer-events-none z-0 opacity-60"
             />
 
-            {/* Ambient Aurora Gradient Orbs */}
-            <div className="absolute -top-28 left-1/2 -translate-x-1/2 w-[720px] h-[400px] bg-indigo-600/15 blur-[140px] rounded-full pointer-events-none animate-pulse-glow"></div>
-            <div className="absolute top-1/3 -left-32 w-[520px] h-[360px] bg-cyan-600/10 blur-[130px] rounded-full pointer-events-none animate-float-gentle"></div>
-            <div className="absolute bottom-12 right-[-5%] w-[580px] h-[380px] bg-emerald-600/10 blur-[140px] rounded-full pointer-events-none animate-float-gentle" style={{ animationDelay: '2.5s' }}></div>
+            {/* Ambient Aurora Gradient Orbs (fixed to viewport) */}
+            <div className="fixed -top-28 left-1/2 -translate-x-1/2 w-[720px] h-[400px] bg-indigo-600/15 blur-[140px] rounded-full pointer-events-none animate-pulse-glow"></div>
+            <div className="fixed top-1/3 -left-32 w-[520px] h-[360px] bg-cyan-600/10 blur-[130px] rounded-full pointer-events-none animate-float-gentle"></div>
+            <div className="fixed bottom-12 right-[-5%] w-[580px] h-[380px] bg-emerald-600/10 blur-[140px] rounded-full pointer-events-none animate-float-gentle" style={{ animationDelay: '2.5s' }}></div>
 
             {/* Top Bar Theme Switcher */}
-            <div className="absolute top-4 right-4 z-20">
+            <div className="fixed top-4 right-4 z-30">
                 <ThemeToggle />
             </div>
 
-            {/* Centered Content Container */}
-            <div className={`relative z-10 w-full min-h-screen flex flex-col justify-center items-center px-4 py-8 sm:py-12 ${className}`}>
+            {/* Centered Content Container with proper vertical padding and no clipping */}
+            <div className={`relative z-10 w-full min-h-screen flex flex-col items-center justify-center px-4 py-8 sm:py-12 my-auto ${className}`}>
                 {children}
             </div>
         </div>

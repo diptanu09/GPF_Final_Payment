@@ -18,13 +18,13 @@ export default function ResetPassword({ email, token }) {
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans select-none">
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4 py-8 sm:py-12 relative overflow-x-hidden overflow-y-auto font-sans">
             <Head title="Reset Password - GPF Final Payment Portal" />
 
             {/* Ambient background glows */}
-            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[350px] bg-emerald-600/10 blur-[130px] rounded-full pointer-events-none"></div>
+            <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[350px] bg-emerald-600/10 blur-[130px] rounded-full pointer-events-none"></div>
 
-            <div className="w-full max-w-md relative z-10 space-y-6">
+            <div className="w-full max-w-md relative z-10 space-y-5 my-auto">
                 {/* Government Header Branding */}
                 <div className="text-center space-y-2">
                     <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-500 text-white shadow-xl shadow-emerald-600/20 mb-2 border border-emerald-400/30">

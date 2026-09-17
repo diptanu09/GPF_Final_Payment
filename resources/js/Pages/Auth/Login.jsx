@@ -31,10 +31,10 @@ export default function Login() {
     };
 
     return (
-        <AuthBackground className="flex flex-col justify-center items-center">
+        <AuthBackground className="flex flex-col items-center justify-center">
             <Head title="Official Secure Sign In - GPF Final Payment Portal" />
 
-            <div className="w-full max-w-md mx-auto space-y-5">
+            <div className="w-full max-w-md mx-auto space-y-3.5 sm:space-y-4 my-auto">
                 {/* Government Header Branding with Interactive Reactive Avatar */}
                 <SecurityShieldAvatar
                     state={avatarState}
@@ -44,9 +44,9 @@ export default function Login() {
                 />
 
                 {/* Interactive 3D Tilt Card Container */}
-                <InteractiveTiltCard className="p-6 sm:p-8">
+                <InteractiveTiltCard className="p-5 sm:p-7">
                     {/* Header Bar */}
-                    <div className="flex items-center justify-between pb-3.5 mb-5 border-b border-slate-800/80 text-xs font-semibold text-slate-300">
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800/80 text-xs font-semibold text-slate-300">
                         <div className="flex items-center gap-2">
                             <KeyRound className="w-4 h-4 text-indigo-400" />
                             <span>Institutional Terminal Access</span>
@@ -56,7 +56,7 @@ export default function Login() {
                         </span>
                     </div>
 
-                    <form onSubmit={submit} className="space-y-4">
+                    <form onSubmit={submit} className="space-y-3.5">
                         {/* Username / Email Field */}
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
@@ -201,7 +201,7 @@ export default function Login() {
                     </form>
 
                     {/* Registration Option Link */}
-                    <div className="mt-5 pt-4 border-t border-slate-800/80 text-center">
+                    <div className="mt-4 pt-3.5 border-t border-slate-800/80 text-center">
                         <p className="text-xs text-slate-400">
                             Need an institutional officer account?{' '}
                             <Link
@@ -215,7 +215,7 @@ export default function Login() {
                     </div>
 
                     {/* Government Portal Security Badges */}
-                    <div className="mt-4 pt-3.5 border-t border-slate-800/60 flex flex-col gap-1.5 text-[11px] text-slate-400 text-center">
+                    <div className="mt-3.5 pt-3 border-t border-slate-800/60 flex flex-col gap-1 text-[11px] text-slate-400 text-center">
                         <div className="flex items-center justify-center gap-4 text-[10px] text-slate-500 font-medium">
                             <span className="flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />

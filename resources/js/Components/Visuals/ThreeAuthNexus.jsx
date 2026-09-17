@@ -6,7 +6,7 @@ import { useTheme } from '@/Context/ThemeContext';
  * ThreeAuthNexus: An interactive 3D mathematical Torus Knot and constellation nebula.
  * Embedded in Auth screens and major hero sections for a breathtaking futuristic visual.
  */
-export default function ThreeAuthNexus({ className = '', height = 400 }) {
+export default function ThreeAuthNexus({ className = '', height = null }) {
     const mountRef = useRef(null);
     const { isDark } = useTheme();
     const isDarkRef = useRef(isDark);
@@ -20,11 +20,19 @@ export default function ThreeAuthNexus({ className = '', height = 400 }) {
         let isVisible = true;
 
         const scene = new THREE.Scene();
-        const width = container.clientWidth || 400;
-        const h = height;
 
-        const camera = new THREE.PerspectiveCamera(50, width / h, 0.1, 1000);
-        camera.position.z = 4.8;
+        const getDimensions = () => {
+            const w = container.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 800);
+            const h = (typeof height === 'number' && height > 0)
+                ? height
+                : (container.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 600));
+            return { w, h };
+        };
+
+        const { w: width, h } = getDimensions();
+
+        const camera = new THREE.PerspectiveCamera(45, width / h, 0.1, 1000);
+        camera.position.z = 5.6;
 
         let renderer;
         try {
@@ -39,6 +47,10 @@ export default function ThreeAuthNexus({ className = '', height = 400 }) {
 
         renderer.setSize(width, h);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.domElement.style.display = 'block';
+        renderer.domElement.style.width = '100%';
+        renderer.domElement.style.height = '100%';
+        renderer.domElement.style.pointerEvents = 'none';
         container.appendChild(renderer.domElement);
 
         const group = new THREE.Group();
@@ -95,11 +107,11 @@ export default function ThreeAuthNexus({ className = '', height = 400 }) {
         window.addEventListener('mousemove', onMouseMove);
 
         const handleResize = () => {
-            if (!container) return;
-            const newW = container.clientWidth;
-            camera.aspect = newW / h;
+            if (!container || !renderer || !camera) return;
+            const { w: newW, h: newH } = getDimensions();
+            camera.aspect = newW / newH;
             camera.updateProjectionMatrix();
-            renderer.setSize(newW, h);
+            renderer.setSize(newW, newH);
         };
         window.addEventListener('resize', handleResize);
 
@@ -139,24 +151,26 @@ export default function ThreeAuthNexus({ className = '', height = 400 }) {
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('resize', handleResize);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
-            observer.disconnect();
+            if (observer) observer.disconnect();
 
-            torusGeo.dispose();
-            torusMat.dispose();
-            particleGeo.dispose();
-            particleMat.dispose();
-            if (renderer.domElement && container.contains(renderer.domElement)) {
-                container.removeChild(renderer.domElement);
+            if (torusGeo) torusGeo.dispose();
+            if (torusMat) torusMat.dispose();
+            if (particleGeo) particleGeo.dispose();
+            if (particleMat) particleMat.dispose();
+            if (renderer) {
+                if (renderer.domElement && container.contains(renderer.domElement)) {
+                    container.removeChild(renderer.domElement);
+                }
+                renderer.dispose();
             }
-            renderer.dispose();
         };
     }, [height]);
 
     return (
         <div
             ref={mountRef}
-            className={`relative flex items-center justify-center pointer-events-none ${className}`}
-            style={{ height: `${height}px` }}
+            className={`relative w-full h-full flex items-center justify-center pointer-events-none ${className}`}
+            style={typeof height === 'number' && height > 0 ? { height: `${height}px` } : undefined}
         />
     );
 }

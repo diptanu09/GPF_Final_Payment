@@ -182,44 +182,44 @@ export default function Dashboard({ metrics = {}, aging = {}, recent_cases = [],
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                        <div className="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 text-center hover:bg-emerald-100/70 transition shadow-2xs">
-                            <div className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-400">&lt; 15 Days</div>
-                            <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400 mt-0.5 font-mono">
+                        <div className="p-3 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 text-center hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 hover:border-emerald-300 dark:hover:border-emerald-400/60 shadow-2xs dark:shadow-none transition-all duration-200">
+                            <div className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300">&lt; 15 Days</div>
+                            <div className="text-xl font-extrabold text-emerald-700 dark:text-emerald-100 mt-0.5 font-mono tracking-tight">
                                 <AnimatedCounter value={aging?.less_15 ?? 0} />
                             </div>
-                            <div className="text-[9px] text-emerald-700 dark:text-emerald-500 font-medium">On track</div>
+                            <div className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">On track</div>
                         </div>
 
-                        <div className="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/40 text-center hover:bg-blue-100/70 transition shadow-2xs">
-                            <div className="text-[11px] font-semibold text-blue-800 dark:text-blue-400">15 – 30 Days</div>
-                            <div className="text-lg font-bold text-blue-700 dark:text-blue-400 mt-0.5 font-mono">
+                        <div className="p-3 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-500/30 text-center hover:bg-blue-100/70 dark:hover:bg-blue-900/40 hover:border-blue-300 dark:hover:border-blue-400/60 shadow-2xs dark:shadow-none transition-all duration-200">
+                            <div className="text-[11px] font-semibold text-blue-800 dark:text-blue-300">15 – 30 Days</div>
+                            <div className="text-xl font-extrabold text-blue-700 dark:text-blue-100 mt-0.5 font-mono tracking-tight">
                                 <AnimatedCounter value={aging?.['15_to_30'] ?? 0} />
                             </div>
-                            <div className="text-[9px] text-blue-700 dark:text-blue-500 font-medium">Normal review</div>
+                            <div className="text-[10px] text-blue-700 dark:text-blue-400 font-medium">Normal review</div>
                         </div>
 
-                        <div className="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-center hover:bg-amber-100/70 transition shadow-2xs">
-                            <div className="text-[11px] font-semibold text-amber-800 dark:text-amber-400">31 – 45 Days</div>
-                            <div className="text-lg font-bold text-amber-700 dark:text-amber-400 mt-0.5 font-mono">
+                        <div className="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-500/30 text-center hover:bg-amber-100/70 dark:hover:bg-amber-900/40 hover:border-amber-300 dark:hover:border-amber-400/60 shadow-2xs dark:shadow-none transition-all duration-200">
+                            <div className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">31 – 45 Days</div>
+                            <div className="text-xl font-extrabold text-amber-700 dark:text-amber-100 mt-0.5 font-mono tracking-tight">
                                 <AnimatedCounter value={aging?.['31_to_45'] ?? 0} />
                             </div>
-                            <div className="text-[9px] text-amber-700 dark:text-amber-500 font-medium">Attention needed</div>
+                            <div className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">Attention needed</div>
                         </div>
 
-                        <div className="p-3 rounded-xl bg-orange-50/80 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800/40 text-center hover:bg-orange-100/70 transition shadow-2xs">
-                            <div className="text-[11px] font-semibold text-orange-800 dark:text-orange-400">46 – 60 Days</div>
-                            <div className="text-lg font-bold text-orange-700 dark:text-orange-400 mt-0.5 font-mono">
+                        <div className="p-3 rounded-xl bg-orange-50/80 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-500/30 text-center hover:bg-orange-100/70 dark:hover:bg-orange-900/40 hover:border-orange-300 dark:hover:border-orange-400/60 shadow-2xs dark:shadow-none transition-all duration-200">
+                            <div className="text-[11px] font-semibold text-orange-800 dark:text-orange-300">46 – 60 Days</div>
+                            <div className="text-xl font-extrabold text-orange-700 dark:text-orange-100 mt-0.5 font-mono tracking-tight">
                                 <AnimatedCounter value={aging?.['46_to_60'] ?? 0} />
                             </div>
-                            <div className="text-[9px] text-orange-700 dark:text-orange-500 font-medium">Priority review</div>
+                            <div className="text-[10px] text-orange-700 dark:text-orange-400 font-medium">Priority review</div>
                         </div>
 
-                        <div className="p-3 rounded-xl bg-rose-50/80 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 text-center col-span-2 sm:col-span-1 hover:bg-rose-100/70 transition shadow-2xs">
+                        <div className="p-3 rounded-xl bg-rose-50/80 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/30 text-center col-span-2 sm:col-span-1 hover:bg-rose-100/70 dark:hover:bg-rose-900/40 hover:border-rose-300 dark:hover:border-rose-400/60 shadow-2xs dark:shadow-none transition-all duration-200">
                             <div className="text-[11px] font-semibold text-rose-800 dark:text-rose-300">&gt; 60 Days</div>
-                            <div className="text-lg font-bold text-rose-700 dark:text-rose-400 mt-0.5 font-mono">
+                            <div className="text-xl font-extrabold text-rose-700 dark:text-rose-100 mt-0.5 font-mono tracking-tight">
                                 <AnimatedCounter value={aging?.more_60 ?? 0} />
                             </div>
-                            <div className="text-[9px] text-rose-700 dark:text-rose-500 font-medium">Urgent escalation</div>
+                            <div className="text-[10px] text-rose-700 dark:text-rose-400 font-medium">Urgent escalation</div>
                         </div>
                     </div>
                 </div>
