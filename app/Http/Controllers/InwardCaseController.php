@@ -246,4 +246,34 @@ class InwardCaseController extends Controller
 
         return back()->with('success', "Case successfully assigned to {$user->name}");
     }
+
+    public function transfer(Request $request, string $id): RedirectResponse
+    {
+        $validated = $request->validate([
+            'to_user_id' => ['required', 'exists:users,id'],
+            'remarks' => ['required', 'string', 'min:3', 'max:1000'],
+        ]);
+
+        $case = InwardCase::findOrFail($id);
+        $toUser = User::findOrFail($validated['to_user_id']);
+        $currentUser = $request->user();
+
+        $case->transferred_to_user_id = $toUser->id;
+        $case->transfer_remarks = $validated['remarks'];
+        $case->assigned_user_id = $toUser->id;
+        $case->save();
+
+        WorkflowHistory::create([
+            'inward_case_id' => $case->id,
+            'performed_by' => $currentUser->id,
+            'from_status' => $case->current_status,
+            'to_status' => $case->current_status,
+            'action_type' => 'TRANSFER_CASE',
+            'remarks' => "Sectional Receipt: Transferred from {$currentUser->name} to {$toUser->name}. Remarks: {$validated['remarks']}",
+            'ip_address' => $request->ip(),
+        ]);
+
+        return back()->with('success', "Case successfully transferred to {$toUser->name} ({$toUser->roleLabel()})");
+    }
 }
+

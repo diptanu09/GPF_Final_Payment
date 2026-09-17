@@ -8,7 +8,10 @@ import {
     AlertOctagon,
     Users,
     ArrowUpRight,
-    TrendingUp
+    TrendingUp,
+    KeyRound,
+    XCircle,
+    FileText
 } from 'lucide-react';
 
 export default function Index({ summary, user_stats }) {
@@ -23,11 +26,11 @@ export default function Index({ summary, user_stats }) {
                         <span>Management Information System (MIS) Reports</span>
                     </h2>
                     <p className="text-xs text-slate-400 mt-1">
-                        Institutional audit statistics, case settlement ratios, and staff performance indices.
+                        Institutional audit statistics, case settlement ratios, officer productivity matrices, and cryptographic logs.
                     </p>
                 </div>
 
-                {/* Summary Cards */}
+                {/* Primary Metric Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Link
                         href="/reports/settled"
@@ -39,7 +42,7 @@ export default function Index({ summary, user_stats }) {
                         </div>
                         <div className="text-2xl font-bold text-emerald-400 mt-3">{summary.total_settled}</div>
                         <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                            <span>Click to view detailed register</span>
+                            <span>View settled register</span>
                             <ArrowUpRight className="w-3 h-3 text-emerald-400" />
                         </div>
                     </Link>
@@ -54,19 +57,25 @@ export default function Index({ summary, user_stats }) {
                         </div>
                         <div className="text-2xl font-bold text-amber-400 mt-3">{summary.total_pending}</div>
                         <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                            <span>Click to view aging breakdown</span>
+                            <span>View aging breakdown</span>
                             <ArrowUpRight className="w-3 h-3 text-amber-400" />
                         </div>
                     </Link>
 
-                    <div className="glass-panel p-5 rounded-2xl">
+                    <Link
+                        href="/reports/minus-balance"
+                        className="glass-panel p-5 rounded-2xl hover:border-rose-500/30 transition group block"
+                    >
                         <div className="flex items-center justify-between">
                             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Minus Balances</span>
-                            <AlertOctagon className="w-5 h-5 text-rose-400" />
+                            <AlertOctagon className="w-5 h-5 text-rose-400 group-hover:scale-110 transition" />
                         </div>
                         <div className="text-2xl font-bold text-rose-400 mt-3">{summary.total_minus_balance}</div>
-                        <div className="text-[11px] text-slate-500 mt-1">Recovery objection dockets</div>
-                    </div>
+                        <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                            <span>Rule 11 recovery register</span>
+                            <ArrowUpRight className="w-3 h-3 text-rose-400" />
+                        </div>
+                    </Link>
 
                     <div className="glass-panel p-5 rounded-2xl">
                         <div className="flex items-center justify-between">
@@ -78,12 +87,78 @@ export default function Index({ summary, user_stats }) {
                     </div>
                 </div>
 
+                {/* Detailed Specialized MIS Registers */}
+                <div>
+                    <h3 className="text-sm font-bold text-white mb-3">Institutional Audit & Activity Registers</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <Link
+                            href="/reports/user-productivity"
+                            className="glass-panel p-4 rounded-xl hover:border-indigo-500/40 transition group block"
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-indigo-300">Staff Productivity Matrix</span>
+                                <Users className="w-4 h-4 text-indigo-400 group-hover:translate-x-0.5 transition" />
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-2">
+                                Inward, calculation, verification, and approval metrics per officer.
+                            </p>
+                        </Link>
+
+                        <Link
+                            href="/reports/digital-signatures"
+                            className="glass-panel p-4 rounded-xl hover:border-purple-500/40 transition group block"
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-purple-300">Digital Signature Audit</span>
+                                <KeyRound className="w-4 h-4 text-purple-400 group-hover:translate-x-0.5 transition" />
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-2">
+                                PKI hardware DSC cryptographic signing hashes and certificate DNs.
+                            </p>
+                        </Link>
+
+                        <Link
+                            href="/reports/minus-balance"
+                            className="glass-panel p-4 rounded-xl hover:border-rose-500/40 transition group block"
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-rose-300">Minus Balance Register</span>
+                                <AlertOctagon className="w-4 h-4 text-rose-400 group-hover:translate-x-0.5 transition" />
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-2">
+                                Overdrawn balance recoveries under Major Heads 8009 and 0049.
+                            </p>
+                        </Link>
+
+                        <Link
+                            href="/reports/cancelled"
+                            className="glass-panel p-4 rounded-xl hover:border-rose-800/40 transition group block"
+                        >
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-rose-400">Canceled Cases Register</span>
+                                <XCircle className="w-4 h-4 text-rose-500 group-hover:translate-x-0.5 transition" />
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-2">
+                                Permanent audit trail of dockets rejected or cancelled with reasons.
+                            </p>
+                        </Link>
+                    </div>
+                </div>
+
                 {/* Staff Settlement Counts */}
                 <div className="glass-panel p-6 rounded-2xl space-y-4">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                        <Users className="w-4 h-4 text-indigo-400" />
-                        <span>Dealing Assistant & Auditor Performance Metrics</span>
-                    </h3>
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <Users className="w-4 h-4 text-indigo-400" />
+                            <span>Dealing Assistant & Auditor Performance Metrics</span>
+                        </h3>
+                        <Link
+                            href="/reports/user-productivity"
+                            className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition"
+                        >
+                            View Comprehensive Productivity Matrix →
+                        </Link>
+                    </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">

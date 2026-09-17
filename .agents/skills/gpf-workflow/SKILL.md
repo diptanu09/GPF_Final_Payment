@@ -16,13 +16,25 @@ This skill provides complete testing procedures, workflow verification steps, an
 
 Run unit and feature tests across the entire GPF pipeline:
 
-### Run All 47 Automated Tests
+### Run All 74 Automated Tests
 ```powershell
 php vendor/phpunit/phpunit/phpunit --testdox
 ```
 
 ### Targeted Workflow & Domain Tests
 ```powershell
+# Test statutory letters suite (Input Sheet, Intimation, Corrigendum, Revalidation, Objection, Minus Balance)
+php vendor/phpunit/phpunit/phpunit tests/Feature/LettersFeatureTest.php --testdox
+
+# Test multi-criteria search and 6-tab deep docket inspector drawer
+php vendor/phpunit/phpunit/phpunit tests/Feature/SearchFeatureTest.php --testdox
+
+# Test case governance (unapproval, cancellation, signature reset, sectional receipt transfers)
+php vendor/phpunit/phpunit/phpunit tests/Feature/CaseAdminFeatureTest.php --testdox
+
+# Test MIS management reports (Productivity, Digital Signatures, Minus Balances, Cancelled)
+php vendor/phpunit/phpunit/phpunit tests/Feature/MisReportsFeatureTest.php --testdox
+
 # Test complete end-to-end workflow state transitions (Draft -> Dispatched)
 php vendor/phpunit/phpunit/phpunit tests/Feature/GpfWorkflowFeatureTest.php --testdox
 
@@ -95,10 +107,17 @@ When Oracle 11g host is unreachable or when running automated CI tests, `OracleM
 
 ---
 
-## 4. Statutory PDF Authority Printing Routes
+## 4. Statutory PDF Authority & Letter Printing Routes
 
 - **Final Payment Authority Letter**: `/authority/{id}/print`
 - **Deposit-Linked Insurance Scheme (DLIS) Order**: `/authority/{id}/print-dlis`
+- **Lifetime Arrears (LTA) Authority Letter**: `/authority/{id}/print-lta`
+- **Official Input Sheet Report (3-Signature Ledger)**: `/letters/{caseId}/input-sheet`
+- **Annexure 5.24 Intimation to Subscriber**: `/letters/{caseId}/intimation`
+- **Corrigendum Amendment Order**: `/letters/{caseId}/corrigendum`
+- **Revalidation Order to Treasury Officer**: `/letters/{caseId}/revalidation`
+- **Objection / Defect Return Memo to DDO**: `/letters/{caseId}/objection`
+- **Rule 11(7) Minus Balance Recovery Notice**: `/letters/{caseId}/minus-balance`
 
 ---
 

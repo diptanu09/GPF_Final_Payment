@@ -1401,4 +1401,12 @@ class OracleMasterBridge
             ['id' => '7', 'code' => 'MISN', 'name' => 'Missing (MISN)', 'short_descr' => 'MISN', 'long_descr' => 'Missing'],
         ]);
     }
+
+    /**
+     * Alias for getSeriesList
+     */
+    public function getGpfSeries(): Collection
+    {
+        return $this->getSeriesList();
+    }
 }

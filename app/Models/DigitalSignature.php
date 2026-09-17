@@ -38,4 +38,9 @@ class DigitalSignature extends Model
     {
         return $this->belongsTo(User::class, 'signatory_user_id');
     }
+
+    public function signer(): BelongsTo
+    {
+        return $this->signatoryUser();
+    }
 }

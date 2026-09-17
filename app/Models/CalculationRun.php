@@ -82,12 +82,27 @@ class CalculationRun extends Model
         return $this->belongsTo(User::class, 'computed_by');
     }
 
+    public function computedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'computed_by');
+    }
+
     public function checkedByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'checked_by');
     }
 
+    public function checkedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'checked_by');
+    }
+
     public function approvedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
     }

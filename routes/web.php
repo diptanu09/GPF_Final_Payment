@@ -5,12 +5,15 @@ use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AuthorityController;
 use App\Http\Controllers\CalculationController;
+use App\Http\Controllers\CaseAdminController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DispatchController;
 use App\Http\Controllers\InwardCaseController;
+use App\Http\Controllers\LettersController;
 use App\Http\Controllers\NomineeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\Api\SystemDeploymentController;
 use Illuminate\Support\Facades\Route;
 
@@ -63,9 +66,22 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/generate', [AdminUserController::class, 'generateToken'])->name('generate');
             Route::delete('/{id}', [AdminUserController::class, 'revokeToken'])->name('revoke');
         });
+        Route::prefix('cases')->name('cases.')->group(function () {
+            Route::get('/', [CaseAdminController::class, 'index'])->name('index');
+            Route::post('/{caseId}/unapprove', [CaseAdminController::class, 'unapprove'])->name('unapprove');
+            Route::post('/{caseId}/cancel', [CaseAdminController::class, 'cancelCase'])->name('cancel');
+            Route::post('/{authorityId}/reset-signature', [CaseAdminController::class, 'resetSignature'])->name('reset-signature');
+            Route::delete('/{caseId}/draft', [CaseAdminController::class, 'deleteDraft'])->name('delete-draft');
+        });
     });
 
-    // Inward Management
+    // Global Search & Deep Docket Inspector
+    Route::prefix('search')->name('search.')->group(function () {
+        Route::get('/', [SearchController::class, 'index'])->name('index');
+        Route::get('/{caseId}/inspect', [SearchController::class, 'inspect'])->name('inspect');
+    });
+
+    // Inward Management & Sectional Receipt
     Route::prefix('inward')->name('inward.')->group(function () {
         Route::get('/', [InwardCaseController::class, 'index'])->name('index');
         Route::get('/create', [InwardCaseController::class, 'create'])->name('create');
@@ -73,6 +89,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/lookup', [InwardCaseController::class, 'lookup'])->name('lookup');
         Route::get('/{id}', [InwardCaseController::class, 'show'])->name('show');
         Route::post('/{id}/assign', [InwardCaseController::class, 'assignStaff'])->name('assign');
+        Route::post('/{id}/transfer', [InwardCaseController::class, 'transfer'])->name('transfer');
     });
 
     // Calculation Engine & Ledgers
@@ -105,6 +122,18 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{id}/print-dlis', [AuthorityController::class, 'printDlis'])->name('print-dlis');
     });
 
+    // Statutory Letters & Special Documents Hub
+    Route::prefix('letters')->name('letters.')->group(function () {
+        Route::get('/', [LettersController::class, 'index'])->name('index');
+        Route::get('/input-sheet/{caseId}', [LettersController::class, 'inputSheet'])->name('input-sheet');
+        Route::get('/intimation/{caseId}', [LettersController::class, 'intimationLetter'])->name('intimation');
+        Route::match(['get', 'post'], '/corrigendum/{caseId}', [LettersController::class, 'corrigendum'])->name('corrigendum');
+        Route::match(['get', 'post'], '/revalidation/{caseId}', [LettersController::class, 'revalidation'])->name('revalidation');
+        Route::match(['get', 'post'], '/objection/{caseId}', [LettersController::class, 'objection'])->name('objection');
+        Route::get('/minus-balance/{caseId}', [LettersController::class, 'minusBalance'])->name('minus-balance');
+        Route::post('/minus-balance/{caseId}/recovery', [LettersController::class, 'storeRecovery'])->name('minus-balance.recovery');
+    });
+
     // Outward & HRMS Dispatch
     Route::prefix('dispatch')->name('dispatch.')->group(function () {
         Route::get('/', [DispatchController::class, 'index'])->name('index');
@@ -117,5 +146,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [ReportController::class, 'index'])->name('index');
         Route::get('/settled', [ReportController::class, 'settledCases'])->name('settled');
         Route::get('/pending', [ReportController::class, 'pendingCases'])->name('pending');
+        Route::get('/user-productivity', [ReportController::class, 'userProductivity'])->name('user-productivity');
+        Route::get('/digital-signatures', [ReportController::class, 'digitalSignatures'])->name('digital-signatures');
+        Route::get('/minus-balance', [ReportController::class, 'minusBalanceCases'])->name('minus-balance');
+        Route::get('/cancelled', [ReportController::class, 'cancelledCases'])->name('cancelled');
     });
 });

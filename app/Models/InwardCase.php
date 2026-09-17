@@ -54,6 +54,13 @@ class InwardCase extends Model
         'delay_justification',
         'delay_approved_by',
         'delay_approved_at',
+        'minus_balance_remarks',
+        'amount_recovered',
+        'minus_balance_closed_at',
+        'cancelled_remarks',
+        'unapproved_remarks',
+        'transfer_remarks',
+        'transferred_to_user_id',
         'current_status',
         'assigned_user_id',
         'created_by',
@@ -74,6 +81,7 @@ class InwardCase extends Model
         'last_fund_deduction' => 'date',
         'date_of_lta' => 'date',
         'debit_during_year' => 'decimal:2',
+        'amount_recovered' => 'decimal:2',
         'current_status' => CaseWorkflowStatus::class,
         'case_type' => CaseType::class,
         'verified_at' => 'datetime',
@@ -86,11 +94,17 @@ class InwardCase extends Model
         'dispatched_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'delay_approved_at' => 'datetime',
+        'minus_balance_closed_at' => 'datetime',
     ];
 
     public function delayApprover(): BelongsTo
     {
         return $this->belongsTo(User::class, 'delay_approved_by');
+    }
+
+    public function transferredToUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'transferred_to_user_id');
     }
 
     public function assignedUser(): BelongsTo

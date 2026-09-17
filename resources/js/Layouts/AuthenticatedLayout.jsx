@@ -18,7 +18,10 @@ import {
     Clock,
     UserCheck,
     UserCircle2,
-    KeyRound
+    KeyRound,
+    Layers,
+    Search,
+    ShieldAlert
 } from 'lucide-react';
 
 export default function AuthenticatedLayout({ children, title }) {
@@ -50,9 +53,20 @@ export default function AuthenticatedLayout({ children, title }) {
         { label: 'Inward & Cases', href: '/inward', icon: FileText, active: url.startsWith('/inward') },
         { label: 'Approvals Queue', href: '/approval', icon: CheckCircle2, active: url.startsWith('/approval'), badge: auth?.user?.is_approver || auth?.user?.is_checker },
         { label: 'Authorities (DSC)', href: '/authority', icon: Award, active: url.startsWith('/authority') },
+        { label: 'Letters & Notices', href: '/letters', icon: Layers, active: url.startsWith('/letters') },
+        { label: 'Global Search', href: '/search', icon: Search, active: url.startsWith('/search') },
         { label: 'Outward & eHRMS', href: '/dispatch', icon: Send, active: url.startsWith('/dispatch') },
         { label: 'MIS Reports', href: '/reports', icon: BarChart3, active: url.startsWith('/reports') },
     ];
+
+    if (auth?.user?.is_super_admin || auth?.user?.is_approver) {
+        navItems.push({
+            label: 'Case Governance',
+            href: '/admin/cases',
+            icon: ShieldAlert,
+            active: url.startsWith('/admin/cases'),
+        });
+    }
 
     if (auth?.user?.is_super_admin) {
         navItems.push({

@@ -160,6 +160,32 @@ When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSub
 ### C. LTA Authority Order (`pdf/lta_authority_letter.blade.php`)
 - Dedicated Lifetime Arrears Authority Order citing `lta_to_whom` claimant.
 
+### D. Input Sheet Official Report (`pdf/input_sheet.blade.php`)
+- Standard 3-signature verification ledger (DEO, AAO, Sr. AO) displaying subscriber demographics, base financial year closing balances, monthly deposit/withdrawal ledgers, interest rate slabs, and delayed interest audit notes.
+- Accessible via print route `/letters/{caseId}/input-sheet`.
+
+### E. Annexure 5.24 Intimation to Subscriber on Authorization (`pdf/intimation_letter.blade.php`)
+- Official intimation letter dispatched to subscriber/claimant upon authority issuance.
+- Contains statutory instructions to submit bill through DDO to Treasury, contact details, dynamic verification QR code, and list of uncredited/missing credits requiring separate reconciliation.
+- Accessible via print route `/letters/{caseId}/intimation`.
+
+### F. Corrigendum Amendment Order (`pdf/corrigendum_letter.blade.php`)
+- Official amendment order citing original Authority No. and date, detailing statutory rectifications with formal endorsements to Treasury Officer, DDO, and claimant.
+- Accessible via print route `/letters/{caseId}/corrigendum`.
+
+### G. Revalidation Order (`pdf/revalidation_letter.blade.php`)
+- Formal revalidation order issued to the Treasury Officer extending validity of an uncashed GPF final payment authority.
+- Accessible via print route `/letters/{caseId}/revalidation`.
+
+### H. Objection / Defect Return Memo (`pdf/objection_letter.blade.php`)
+- Official memo returning defective GPF final payment applications to DDOs citing specific statutory checklist defects (non-matching signature, incomplete service book, missing nomination, unverified advances, etc.).
+- Accessible via print route `/letters/{caseId}/objection`.
+
+### I. Rule 11(7) Minus Balance Notice & Recovery Record (`pdf/minus_balance_letter.blade.php`)
+- Statutory notice issued to the Head of Office / DDO under Rule 11(7) of Central GPF Rules when progressive calculation yields a negative closing balance due to excess past withdrawals.
+- Demands immediate recovery through Treasury challan to Major Head `8009` (Principal) and `0049` (Interest).
+- Accessible via print route `/letters/{caseId}/minus-balance`.
+
 ---
 
 ## 7. GPF Final Payment Workflow States
@@ -187,6 +213,10 @@ When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSub
      │ (Physical dispatch recorded with Speed Post barcode)
      ▼
 [8] CLOSED
+
+Auxiliary States:
+- [9] MINUS_BALANCE (Calculation yields negative net balance; notice issued to DDO under Rule 11(7))
+- [10] CANCELLED (Case formally cancelled by Directorate or Sr. AO with audit justification)
 ```
 
 ---
@@ -215,6 +245,38 @@ When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSub
 - Secure password change module (`/profile/password`) requiring current password verification.
 - Real-time audit performance metrics (dockets created, audits checked, settlements approved, DSC signatures).
 
+### E. Global Multi-Criteria Docket Search & Deep Inspector (`/search`)
+- **Multi-Parameter Search**: Instant searching by Registration No, Employee Code, Beneficiary Code, GPF Account No (with Series ID dropdown), Subscriber Name, Workflow Status, Pension Type, and Inward Date Range.
+- **Deep Docket Inspector Drawer (`/search/{id}/inspect`)**: Complete 6-tab inspection drawer rendering all docket details without leaving the search view:
+  1. *Overview*: Status badge, registration info, timestamps, assigned officer.
+  2. *Subscriber & Service*: Full demographic details, designation, DDO, Treasury, event dates.
+  3. *Financial Ledger*: Base FY, opening balance, monthly deposit/withdrawal records, interest breakdown, net payable.
+  4. *Nominee Matrix*: Beneficiary codes, relationship, share percentages, allocated amounts.
+  5. *Authority & Dispatch*: Authority number, date, gross/net amounts, DSC status, dispatch barcode.
+  6. *Audit Trail & Letters*: Complete immutable workflow history log and 1-click statutory letter generation links.
+
+### F. Case Governance & Unapproval Console (`/admin/cases`)
+- **Restricted to Approvers and Directorate Admins** (`rkdb`, `dir`, `jdg`).
+- **Audit Actions**:
+  - *Unapprove Case*: Reverts `APPROVED` / `LTA_APPROVED` dockets back to `CALCULATED` so Dealing Assistants can correct vouchers or interest calculations.
+  - *Cancel Case*: Formally cancels dockets with mandatory justification recorded in `cancelled_remarks` and workflow history.
+  - *Reset PKI Digital Signature*: Clears digital signature and resets `AUTHORIZED` case back to `APPROVED` for re-signing in case of endorsement revisions.
+  - *Draft Deletion*: Allows purging orphaned `DRAFT` dockets before calculation runs are initiated.
+
+### G. Sectional Receipt Docket Transfer (`/inward/{id}/transfer`)
+- Allows reassigning dockets between Dealing Assistants (`deo`) with mandatory transfer remarks logged in `transfer_remarks` and `workflow_histories`.
+
+### H. Comprehensive Management Information System (MIS) Reports (`/reports/*`)
+1. **Settled Cases Register** (`/reports/settled`): Summary of authorized and dispatched settlements with financial totals.
+2. **Pending Cases Register** (`/reports/pending`): Action-item queue for dockets in `DRAFT`, `CALCULATED`, and `CHECKED` states.
+3. **Staff Productivity Register** (`/reports/productivity`): Officer-wise matrix counting inward registrations, calculations, audits, approvals, and digital signatures.
+4. **PKI Digital Signature Audit Log** (`/reports/digital-signatures`): Log of hardware USB token DSC events, serial numbers, timestamps, and signatories.
+5. **Minus Balance Recovery Dashboard** (`/reports/minus-balance`): Tracks cases with negative balances under Rule 11(7), recording recovery amounts and settlement dates.
+6. **Cancelled Cases Register** (`/reports/cancelled`): Archive of all cancelled dockets and reasons.
+
+### I. Native Residual GPF Payment Roadmap
+- Residual Payment processing (post-closure interest, late adjustments, and residual claims) will be developed natively inside this project within the GPF Final Payment Portal rather than redirecting to an external application.
+
 ---
 
 ## 9. Key File Sitemap
@@ -228,17 +290,31 @@ When registering a new docket (`/inward/create`), `OracleMasterBridge::lookupSub
 - `app/Http/Controllers/AuthController.php` — Login, registration with Admin Security Tokens, password reset, and username recovery.
 - `app/Http/Controllers/AdminUserController.php` — Directorate user governance, approval queue, role editing, password resets, and token issuance.
 - `app/Http/Controllers/ProfileController.php` — Officer profile management, password updates, and audit metric counters.
-- `app/Http/Controllers/InwardCaseController.php` — Docket registration & subscriber lookup API (`/inward/lookup`).
+- `app/Http/Controllers/InwardCaseController.php` — Docket registration, subscriber lookup API (`/inward/lookup`), and docket transfer (`/inward/{id}/transfer`).
 - `app/Http/Controllers/CalculationController.php` — Calculation runs, Base FY lookup, and live breakdown sheets.
 - `app/Http/Controllers/NomineeController.php` — Nominee distribution & beneficiary codes.
 - `app/Http/Controllers/ApprovalController.php` — AAO verification and Sr. AO approval.
 - `app/Http/Controllers/AuthorityController.php` — Authority generation, PDF preview, DLIS print, and DSC digital signing.
 - `app/Http/Controllers/DispatchController.php` — HRMS dispatch and postal outward tracking.
+- `app/Http/Controllers/LettersController.php` — Statutory letters suite (Input Sheet, Intimation, Corrigendum, Revalidation, Objection, Minus Balance).
+- `app/Http/Controllers/SearchController.php` — Multi-criteria search and 6-tab deep docket inspection drawer API.
+- `app/Http/Controllers/CaseAdminController.php` — Case governance (unapprove, cancel, signature reset, draft delete).
+- `app/Http/Controllers/ReportController.php` — MIS reports (Settled, Pending, Staff Productivity, Digital Signatures, Minus Balances, Cancelled).
 - `resources/views/pdf/authority_letter.blade.php` — Official statutory AG Tripura Authority Letter template.
 - `resources/views/pdf/dlis_letter.blade.php` — Official DLIS Sanction Order template.
 - `resources/views/pdf/lta_authority_letter.blade.php` — Official LTA Authority Order template.
+- `resources/views/pdf/input_sheet.blade.php` — Official Input Sheet Report template.
+- `resources/views/pdf/intimation_letter.blade.php` — Official Annexure 5.24 Intimation Letter template.
+- `resources/views/pdf/corrigendum_letter.blade.php` — Official Corrigendum Amendment Order template.
+- `resources/views/pdf/revalidation_letter.blade.php` — Official Revalidation Order template.
+- `resources/views/pdf/objection_letter.blade.php` — Official Objection / Defect Return Memo template.
+- `resources/views/pdf/minus_balance_letter.blade.php` — Official Rule 11(7) Minus Balance Notice template.
 - `resources/js/Pages/Admin/Users/Index.jsx` — Admin User Governance & Security Token Console.
+- `resources/js/Pages/Admin/CaseAdmin/Index.jsx` — Case Governance & Signature Reset Console.
 - `resources/js/Pages/Profile/Show.jsx` — Officer Profile, Security & Activity Dashboard.
+- `resources/js/Pages/Letters/Index.jsx` — Statutory Letters & Notices Action Hub.
+- `resources/js/Pages/Search/Index.jsx` — Multi-Criteria Search & Deep Docket Inspector.
+- `resources/js/Pages/Reports/` — MIS Reports suite (`SettledCases.jsx`, `PendingCases.jsx`, `UserProductivity.jsx`, `DigitalSignatures.jsx`, `MinusBalanceCases.jsx`, `CancelledCases.jsx`).
 - `resources/js/Pages/` — Inertia React UI components (`Authority/Show.jsx`, `Calculation/CalculationSheet.jsx`, `Inward/Create.jsx`, etc.).
 
 ---
