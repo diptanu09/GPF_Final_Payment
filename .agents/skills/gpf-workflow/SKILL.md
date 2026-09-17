@@ -210,11 +210,19 @@ If the Calculation page in Docker shows only 3 financial years (`2024-2025`, `20
 
 ## 7. Authentication UI/UX & Security Design Standards
 
-- **Middle / Centered Viewport Alignment**: All authentication forms (`/login`, `/register`, `/forgot-password`, `/reset-password`, `/forgot-username`) must be centered in the viewport horizontally and vertically (`min-h-screen flex flex-col justify-center items-center` in `AuthBackground`, plus `mx-auto` on the card container).
+- **Viewport Scrollability & Centering Invariant**:
+  - All authentication pages (`/login`, `/register`, `/forgot-password`, `/reset-password`, `/forgot-username`) must use `overflow-x-hidden overflow-y-auto` on the outermost container. Never use `overflow-hidden`.
+  - Centering must use `my-auto` with vertical padding (`py-8 sm:py-12`), avoiding raw `justify-center` alone on scroll containers so taller cards are never clipped into negative scroll space at the top.
+  - Do not apply `select-none` on outer authentication wrappers. Inputs and text must remain selectable.
+  - Card containers (`InteractiveTiltCard.jsx`) must explicitly specify `w-full`.
+- **Full-Viewport Ambient 3D WebGL Backgrounds (`ThreeAuthNexus.jsx`)**:
+  - The 3D canvas must never be bound inside a small or fixed-width box (`max-w-2xl` or hardcoded `height={600}`).
+  - Must always span the entire viewport (`fixed inset-0 pointer-events-none w-full h-full overflow-hidden`) with a comfortable FOV (45°) and `camera.position.z >= 5.2` to eliminate edge clipping on rotation.
+  - Wrap WebGL initialization and animation in `try ... catch` and add null checks in cleanup (`if (renderer)`, `if (observer)`).
 - **Strict Prohibition of Mock / Quick Login & Dummy Placeholders**:
   - Do NOT provide quick-login profile chips, autofill shortcuts, or mock user buttons.
   - Only registered officers with existing records in the database may log in by manually typing their user ID and password.
-  - Placeholders must remain neutral and institutional (e.g. `Enter registered officer username`, `Enter institutional password`) with no dummy names or test values.
+  - Placeholders must remain neutral and institutional (`Enter registered officer username`, `Enter institutional password`).
 - **Micro-Animations & Interactive Dynamics**:
   - Interactive canvas constellation background (`AuthBackground.jsx`).
   - 3D perspective tilt container with cursor spotlight border glow (`InteractiveTiltCard.jsx`).
@@ -234,8 +242,10 @@ If the Calculation page in Docker shows only 3 financial years (`2024-2025`, `20
 - **Top Navigation Bar Dynamic Transparency**:
   - At scroll position 0 (`scrollY === 0`): 100% transparent (`bg-transparent border-transparent`) rendering only floating breadcrumbs, search, theme toggles, audio controls, and profile dropdowns.
   - On scroll (`scrollY > 8`): Smoothly fades in frosted glassmorphic background (`bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 shadow-xs`).
-- **Full Light & Dark Theme Parity**:
-  - High-contrast text: `text-slate-900 dark:text-white` for primary headers, `text-slate-600 dark:text-slate-300` for secondary descriptions.
+- **Full Light & Dark Theme Parity & Matrix Hover Standards**:
+  - When light-mode hover backgrounds (e.g., `hover:bg-emerald-100/70`) are used on cards, they **must always** have explicit dark-mode counterparts (`dark:hover:bg-emerald-900/40 dark:hover:border-emerald-400/60 dark:hover:shadow-none`) to prevent light-theme washouts on dark cards.
+  - Use `shadow-2xs dark:shadow-none` on tinted matrices (e.g. Dashboard Aging Breakdown) to avoid murky shadow smudges.
+  - High-contrast text hierarchy: `text-slate-900 dark:text-white` for primary headers, `dark:text-*-100 font-mono` for counts, and `dark:text-*-300` for badges.
   - Tailwind CSS v4 custom variant: `@custom-variant dark (&:where(.dark, .dark *));`.
 - **Audio Feedback**:
   - Web Audio API zero-dependency haptic feedback with header mute toggle (`Volume2`/`VolumeX`).

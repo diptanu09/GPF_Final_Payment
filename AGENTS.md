@@ -421,5 +421,47 @@ docker compose exec app php artisan route:cache
 Invoke-RestMethod -Uri "http://10.47.240.169/api/v1/system/status" -Headers @{ "X-Deploy-Token" = "GPF_DEPLOY_SECRET_TOKEN_2026" }
 ```
 
+---
+
+## 15. Front-End Viewport, 3D WebGL Backgrounds & Dark-Theme Hover Standards
+
+### A. Ambient 3D WebGL Backgrounds & Full Viewport Geometry (`ThreeAuthNexus.jsx`)
+- **Full-Viewport Canvas Coverage**:
+  - Ambient 3D canvas backgrounds (`ThreeAuthNexus`) must NEVER be constrained by fixed-width containers (`max-w-2xl`, etc.) or hardcoded pixel heights (`height={600}`).
+  - Always mount the 3D nexus in a full-viewport container (`fixed inset-0 pointer-events-none w-full h-full overflow-hidden`).
+  - Constraining rotating 3D geometry inside a smaller bounding box causes visible, flat rectangular clipping along the left, right, top, and bottom edges.
+- **Camera Frustum & Aspect Ratio Resiliency**:
+  - Use a comfortable camera FOV (e.g., 45°) with `camera.position.z >= 5.2` to give rotating wireframes (e.g. Torus Knot) ample breathing room.
+  - Automatically recalculate `camera.aspect = newW / newH` and update projection matrices in window resize listeners.
+- **Fail-Safe Scene Graph & Null Guards**:
+  - The Three.js scene (`const scene = new THREE.Scene()`) must always be declared and available before geometry/particle groups are initialized.
+  - Wrap WebGL initialization and animation loops in defensive `try ... catch` blocks.
+  - Cleanup functions must check for object existence (`if (renderer)`, `if (observer)`) so unmounting and Vite hot-reloads never trigger unhandled exceptions.
+
+### B. Authentication Screen Viewport & Scrolling Invariants (`AuthBackground.jsx`, `Login.jsx`)
+- **Smooth Vertical Scrollability**:
+  - Use `overflow-x-hidden overflow-y-auto font-sans` on the outermost auth wrapper. Never use `overflow-hidden`.
+  - On smaller laptop viewports (e.g. 768p or 1080p with Windows 125%/150% display scaling), forms exceeding available height must scroll cleanly without clipping the top emblem or bottom submit/action buttons.
+- **Flexbox Centering without Negative Scroll Clipping**:
+  - Avoid rigid `justify-center` alone on scroll containers. In CSS flexbox, `justify-center` pushes overflow into negative scroll coordinates where users cannot scroll up to see it.
+  - Use responsive `my-auto` centering with adequate vertical padding (`py-8 sm:py-12`) so the card centers vertically when extra space exists, but aligns from top and scrolls naturally when height is constrained.
+- **No Global Text Selection Blocking**:
+  - Do NOT apply `select-none` on the outer authentication layout. Inputs, labels, error notices, and security text must remain selectable for password managers and clipboard operations.
+- **Card Flex Expansion**:
+  - Tilt cards (`InteractiveTiltCard.jsx`) and form containers must explicitly include `w-full` to prevent flexbox shrink-to-fit sizing anomalies.
+
+### C. Dark Theme Hover & Shadow Parity Standards for Tinted & Matrix Cards
+- **Strict Hover Parity Requirement**:
+  - When light-mode hover backgrounds (e.g., `hover:bg-emerald-100/70`, `hover:bg-blue-100/70`) are applied to tinted cards, they **MUST ALWAYS** have an explicit dark-mode counterpart (`dark:hover:bg-emerald-900/40`, `dark:hover:border-emerald-400/60`, `dark:hover:shadow-none`).
+  - *Bug Prevention*: Omitting `dark:hover:bg-*` causes Tailwind to fall back to the light-mode pale/white hover background, creating a glaring white wash and broken shadow flash over dark cards when hovered with the mouse.
+- **Dark Mode Elevation & Shadow Sanitation**:
+  - Avoid murky dark smudges by using `dark:shadow-none` on small tinted matrix cards (such as the Aging Breakdown matrix on `Dashboard.jsx`).
+  - Rely on subtle, glowing perimeters (`dark:border-*-500/30` brightening to `dark:hover:border-*-400/60`) for clean dark elevation.
+- **High-Contrast Text Hierarchy on Dark Tinted Surfaces**:
+  - Labels: `text-[11px] font-semibold text-*-800 dark:text-*-300`
+  - Numbers/Counts: `text-xl font-extrabold text-*-700 dark:text-*-100 font-mono tracking-tight`
+  - Subtitles: `text-[10px] text-*-700/80 dark:text-*-400 font-medium`
+
+
 
 

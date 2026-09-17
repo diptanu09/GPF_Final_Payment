@@ -35,3 +35,13 @@
 - **5-Column Financial Working Table**: O.B., Subscription/Refund, Withdrawal, Interest (Actual + Delayed), Closing Balance.
 - **Currency in Words**: Converted with `IndianCurrencyFormatter::toWords()` (*Crore, Lakh, Thousand, Hundred, Rupees, Paise*).
 - **Separate Orders**: FP Authority (`authority_letter.blade.php`), DLIS Sanction Order (`dlis_letter.blade.php`), and LTA Authority Order (`lta_authority_letter.blade.php`).
+
+## 7. Authentication Viewports & 3D WebGL Background Standards
+- **Viewport Scrollability**: Auth containers must use `overflow-x-hidden overflow-y-auto` and `my-auto` centering with `py-8 sm:py-12` padding. Never use `overflow-hidden` or rigid unscrollable centering.
+- **Ambient 3D Canvases (`ThreeAuthNexus.jsx`)**: The 3D background canvas must always fill the full viewport (`fixed inset-0 pointer-events-none w-full h-full overflow-hidden`). Never constrain rotating 3D geometry inside a small fixed box (`max-w-2xl` or fixed height) to prevent edge clipping.
+- **No Global Text Selection Blocking**: Never apply `select-none` on outer auth layouts.
+
+## 8. Dark-Theme Parity & Hover Consistency
+- **Hover Background Parity**: Any card with a light-mode hover tint (e.g. `hover:bg-emerald-100/70`) must explicitly specify a dark-mode counterpart (`dark:hover:bg-emerald-900/40 dark:hover:border-emerald-400/60 dark:hover:shadow-none`). Never allow light hover backgrounds to wash over dark cards.
+- **Elevation**: Use `shadow-2xs dark:shadow-none` on tinted matrices with subtle border glows for clean contrast.
+
