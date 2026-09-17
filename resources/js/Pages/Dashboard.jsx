@@ -1,9 +1,10 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import ThreeDashboardGlobe from '@/Components/Visuals/ThreeDashboardGlobe';
+import AnimatedCounter from '@/Components/UI/AnimatedCounter';
 import {
     FilePlus,
-    FileCheck,
     FileText,
     Clock,
     IndianRupee,
@@ -13,233 +14,313 @@ import {
     ShieldAlert,
     CheckCircle2,
     Calendar,
-    ChevronRight
+    ChevronRight,
+    Search,
+    Layers,
+    Sparkles
 } from 'lucide-react';
+import audioFeedback from '@/Services/AudioFeedbackService';
 
 export default function Dashboard({ metrics = {}, aging = {}, recent_cases = [], recent_histories = [] }) {
     const totalRegistered = metrics?.registered ?? 0;
     const totalSettled = metrics?.settled ?? 0;
     const totalPending = metrics?.pending ?? 0;
     const totalAuthorizedAmount = metrics?.authorized_amount ?? 0;
+
     return (
         <AuthenticatedLayout title="Executive Dashboard">
             <Head title="Executive Dashboard - GPF Final Payment Portal" />
 
-            <div className="space-y-8">
-                {/* Page Title & Banner */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                            Executive Settlement Dashboard
-                        </h2>
-                        <p className="text-xs text-slate-400 mt-1">
-                            Real-time workflow monitoring, statutory aging, and authorization ledger.
-                        </p>
-                    </div>
+            <div className="space-y-4 sm:space-y-5">
+                {/* 3D Executive Compact Hero Card */}
+                <div className="rounded-2xl relative overflow-hidden border border-indigo-200/80 dark:border-indigo-500/20 bg-gradient-to-r from-indigo-50/90 via-white to-sky-50/80 dark:from-slate-900/90 dark:via-indigo-950/40 dark:to-slate-900/90 p-4 sm:p-5 shadow-sm dark:shadow-2xl">
+                    <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+                        <div className="lg:col-span-8 space-y-2.5">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold">
+                                <Sparkles className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                                <span>CAG Tripura Settlement Ledger &bull; Real-Time</span>
+                            </div>
 
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href="/inward/create"
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition"
-                        >
-                            <FilePlus className="w-4 h-4" />
-                            <span>Register New Inward Case</span>
-                        </Link>
-                    </div>
-                </div>
+                            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
+                                GPF Final Payment <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-cyan-600 dark:from-indigo-400 dark:to-cyan-400">Executive Console</span>
+                            </h2>
 
-                {/* KPI Metrics Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="glass-panel p-5 rounded-2xl relative overflow-hidden">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Registered</span>
-                            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                <FileText className="w-5 h-5" />
+                            <p className="text-xs text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
+                                Live statutory workflow pipeline, Central GPF Rule 11(4) delay interest monitoring, and PKI hardware token authorization.
+                            </p>
+
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <Link
+                                    href="/inward/create"
+                                    onClick={() => audioFeedback.playClick()}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold shadow-sm shadow-indigo-600/30 transition transform hover:-translate-y-0.5"
+                                >
+                                    <FilePlus className="w-3.5 h-3.5" />
+                                    <span>Register New Inward</span>
+                                </Link>
+
+                                <Link
+                                    href="/search"
+                                    onClick={() => audioFeedback.playClick()}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-300/80 dark:border-slate-700 transition shadow-2xs transform hover:-translate-y-0.5"
+                                >
+                                    <Search className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                                    <span>Search Docket</span>
+                                </Link>
+
+                                <Link
+                                    href="/letters"
+                                    onClick={() => audioFeedback.playClick()}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-300/80 dark:border-slate-700 transition shadow-2xs transform hover:-translate-y-0.5"
+                                >
+                                    <Layers className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                                    <span>Statutory Letters Hub</span>
+                                </Link>
                             </div>
                         </div>
-                        <div className="text-2xl font-bold text-white mt-3">{totalRegistered}</div>
-                        <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                            <span>All-time inward dockets</span>
-                        </div>
-                    </div>
 
-                    <div className="glass-panel p-5 rounded-2xl relative overflow-hidden">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Settled & Authorized</span>
-                            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                <CheckCircle2 className="w-5 h-5" />
+                        {/* Interactive 3D Three.js Compact Widget */}
+                        <div className="lg:col-span-4 flex items-center justify-center relative">
+                            <div className="w-full max-w-[180px] relative">
+                                <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-cyan-500/20 rounded-full blur-xl pointer-events-none"></div>
+                                <ThreeDashboardGlobe height={130} className="w-full" />
+                                <div className="text-center mt-0.5">
+                                    <span className="text-[9px] font-mono uppercase tracking-widest text-indigo-600 dark:text-indigo-400 font-semibold opacity-85">
+                                        &bull; 3D Settlement Nexus &bull;
+                                    </span>
+                                </div>
                             </div>
-                        </div>
-                        <div className="text-2xl font-bold text-emerald-400 mt-3">{totalSettled}</div>
-                        <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                            <span>Final payment orders issued</span>
-                        </div>
-                    </div>
-
-                    <div className="glass-panel p-5 rounded-2xl relative overflow-hidden">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Pending</span>
-                            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                <Clock className="w-5 h-5" />
-                            </div>
-                        </div>
-                        <div className="text-2xl font-bold text-amber-400 mt-3">{totalPending}</div>
-                        <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                            <span>Under active audit / verification</span>
-                        </div>
-                    </div>
-
-                    <div className="glass-panel p-5 rounded-2xl relative overflow-hidden">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Authorized Sum</span>
-                            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                                <IndianRupee className="w-5 h-5" />
-                            </div>
-                        </div>
-                        <div className="text-2xl font-bold text-indigo-300 mt-3">
-                            ₹ {Number(totalAuthorizedAmount).toLocaleString('en-IN')}
-                        </div>
-                        <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                            <span>Digitally signed funds</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Pending Case Aging Breakdown */}
-                <div className="glass-panel p-6 rounded-2xl">
-                    <div className="flex items-center justify-between mb-4">
+                {/* KPI Metrics Cards: Compact & Responsive */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800/80 shadow-xs hover:border-blue-500/40 transition-all group">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Registered</span>
+                            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 group-hover:scale-105 transition-transform">
+                                <FileText className="w-4 h-4" />
+                            </div>
+                        </div>
+                        <div className="text-2xl font-bold text-slate-900 dark:text-white mt-2 font-mono">
+                            <AnimatedCounter value={totalRegistered} duration={900} />
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            All-time inward dockets registered
+                        </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800/80 shadow-xs hover:border-emerald-500/40 transition-all group">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Settled & Authorized</span>
+                            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 group-hover:scale-105 transition-transform">
+                                <CheckCircle2 className="w-4 h-4" />
+                            </div>
+                        </div>
+                        <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 mt-2 font-mono">
+                            <AnimatedCounter value={totalSettled} duration={900} />
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Final payment orders dispatched
+                        </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800/80 shadow-xs hover:border-amber-500/40 transition-all group">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Pending</span>
+                            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 group-hover:scale-105 transition-transform">
+                                <Clock className="w-4 h-4" />
+                            </div>
+                        </div>
+                        <div className="text-2xl font-bold text-amber-700 dark:text-amber-400 mt-2 font-mono">
+                            <AnimatedCounter value={totalPending} duration={900} />
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Under active audit / verification
+                        </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800/80 shadow-xs hover:border-indigo-500/40 transition-all group">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Authorized Sum</span>
+                            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20 group-hover:scale-105 transition-transform">
+                                <IndianRupee className="w-4 h-4" />
+                            </div>
+                        </div>
+                        <div className="text-xl sm:text-2xl font-bold text-indigo-700 dark:text-indigo-300 mt-2 font-mono truncate">
+                            <AnimatedCounter value={totalAuthorizedAmount} prefix="₹ " duration={1200} />
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Digitally sanctioned final payments
+                        </div>
+                    </div>
+                </div>
+
+                {/* Statutory Pending Case Aging Breakdown */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800/80 shadow-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-3.5">
                         <div>
-                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-indigo-400" />
+                            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                                 <span>Statutory Pending Case Aging Breakdown</span>
                             </h3>
-                            <p className="text-[11px] text-slate-400">
-                                Case duration from official inward registration date.
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                                Case duration calculated from official inward registration diary date.
                             </p>
                         </div>
-                        <span className="text-xs text-slate-400 bg-slate-800/60 px-2.5 py-1 rounded-lg border border-slate-700">
-                            Total Pending: {totalPending}
+                        <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 self-start sm:self-auto">
+                            Total Pending: {totalPending} Cases
                         </span>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
-                            <div className="text-xs text-slate-400">&lt; 15 Days</div>
-                            <div className="text-xl font-bold text-emerald-400 mt-1">{aging?.less_15 ?? 0}</div>
-                            <div className="text-[10px] text-emerald-500/80 mt-0.5">On track</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 text-center">
+                            <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">&lt; 15 Days</div>
+                            <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400 mt-0.5 font-mono">
+                                <AnimatedCounter value={aging?.less_15 ?? 0} />
+                            </div>
+                            <div className="text-[9px] text-emerald-700 dark:text-emerald-500 font-medium">On track</div>
                         </div>
 
-                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
-                            <div className="text-xs text-slate-400">15 – 30 Days</div>
-                            <div className="text-xl font-bold text-blue-400 mt-1">{aging?.['15_to_30'] ?? 0}</div>
-                            <div className="text-[10px] text-blue-500/80 mt-0.5">Normal review</div>
+                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 text-center">
+                            <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">15 – 30 Days</div>
+                            <div className="text-lg font-bold text-blue-700 dark:text-blue-400 mt-0.5 font-mono">
+                                <AnimatedCounter value={aging?.['15_to_30'] ?? 0} />
+                            </div>
+                            <div className="text-[9px] text-blue-700 dark:text-blue-500 font-medium">Normal review</div>
                         </div>
 
-                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
-                            <div className="text-xs text-slate-400">31 – 45 Days</div>
-                            <div className="text-xl font-bold text-amber-400 mt-1">{aging?.['31_to_45'] ?? 0}</div>
-                            <div className="text-[10px] text-amber-500/80 mt-0.5">Attention needed</div>
+                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 text-center">
+                            <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">31 – 45 Days</div>
+                            <div className="text-lg font-bold text-amber-700 dark:text-amber-400 mt-0.5 font-mono">
+                                <AnimatedCounter value={aging?.['31_to_45'] ?? 0} />
+                            </div>
+                            <div className="text-[9px] text-amber-700 dark:text-amber-500 font-medium">Attention needed</div>
                         </div>
 
-                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
-                            <div className="text-xs text-slate-400">46 – 60 Days</div>
-                            <div className="text-xl font-bold text-orange-400 mt-1">{aging?.['46_to_60'] ?? 0}</div>
-                            <div className="text-[10px] text-orange-500/80 mt-0.5">Priority review</div>
+                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800/80 text-center">
+                            <div className="text-[11px] font-medium text-slate-600 dark:text-slate-400">46 – 60 Days</div>
+                            <div className="text-lg font-bold text-orange-700 dark:text-orange-400 mt-0.5 font-mono">
+                                <AnimatedCounter value={aging?.['46_to_60'] ?? 0} />
+                            </div>
+                            <div className="text-[9px] text-orange-700 dark:text-orange-500 font-medium">Priority review</div>
                         </div>
 
-                        <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-900/30 text-center col-span-2 sm:col-span-1">
-                            <div className="text-xs text-rose-300">&gt; 60 Days</div>
-                            <div className="text-xl font-bold text-rose-400 mt-1">{aging?.more_60 ?? 0}</div>
-                            <div className="text-[10px] text-rose-500 mt-0.5">Urgent escalation</div>
+                        <div className="p-3 rounded-xl bg-rose-50/80 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 text-center col-span-2 sm:col-span-1">
+                            <div className="text-[11px] font-medium text-rose-700 dark:text-rose-300">&gt; 60 Days</div>
+                            <div className="text-lg font-bold text-rose-700 dark:text-rose-400 mt-0.5 font-mono">
+                                <AnimatedCounter value={aging?.more_60 ?? 0} />
+                            </div>
+                            <div className="text-[9px] text-rose-700 dark:text-rose-500 font-medium">Urgent escalation</div>
                         </div>
                     </div>
                 </div>
 
-                {/* Two Columns: Recent Cases & Audit Timeline */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Two Columns: Recent Cases & Audit Feed */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
                     {/* Recent Cases (2 columns) */}
-                    <div className="lg:col-span-2 glass-panel p-6 rounded-2xl">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-indigo-400" />
-                                <span>Recent Case Registrations & Movements</span>
+                    <div className="lg:col-span-2 p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800/80 shadow-xs">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                <span>Recent Case Movements</span>
                             </h3>
-                            <Link href="/inward" className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium">
+                            <Link
+                                href="/inward"
+                                onClick={() => audioFeedback.playClick()}
+                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-0.5 font-semibold"
+                            >
                                 <span>View All Cases</span>
-                                <ChevronRight className="w-3.5 h-3.5" />
+                                <ChevronRight className="w-3 h-3" />
                             </Link>
                         </div>
 
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-xs">
                                 <thead>
-                                    <tr className="border-b border-slate-800 text-slate-400 font-semibold">
-                                        <th className="py-3 px-2">Registration No</th>
-                                        <th className="py-3 px-2">Subscriber / GPF No</th>
-                                        <th className="py-3 px-2">Current Status</th>
-                                        <th className="py-3 px-2 text-right">Net Amount</th>
-                                        <th className="py-3 px-2 text-right">Action</th>
+                                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold bg-slate-50/70 dark:bg-slate-950/40">
+                                        <th className="py-2.5 px-2.5">Registration No</th>
+                                        <th className="py-2.5 px-2.5">Subscriber / GPF No</th>
+                                        <th className="py-2.5 px-2.5">Current Status</th>
+                                        <th className="py-2.5 px-2.5 text-right">Net Amount</th>
+                                        <th className="py-2.5 px-2.5 text-right">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-800/60">
-                                    {recent_cases.map((c) => (
-                                        <tr key={c.id} className="hover:bg-slate-900/40 transition">
-                                            <td className="py-3 px-2 font-mono font-bold text-indigo-300">
-                                                {c.registration_no}
-                                            </td>
-                                            <td className="py-3 px-2">
-                                                <div className="font-semibold text-slate-200">{c.subscriber_name}</div>
-                                                <div className="text-[11px] text-slate-400 font-mono">{c.gpf_account}</div>
-                                            </td>
-                                            <td className="py-3 px-2">
-                                                <span className={`px-2.5 py-1 text-[10px] font-semibold rounded-full border ${c.status_badge}`}>
-                                                    {c.status_label}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 px-2 text-right font-mono text-slate-200">
-                                                {c.amount ? `₹ ${Number(c.amount).toLocaleString('en-IN')}` : '—'}
-                                            </td>
-                                            <td className="py-3 px-2 text-right">
-                                                <Link
-                                                    href={`/inward/${c.id}`}
-                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20"
-                                                >
-                                                    <span>Open</span>
-                                                    <ArrowUpRight className="w-3 h-3" />
-                                                </Link>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                                    {recent_cases.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="py-6 text-center text-slate-400 text-xs">
+                                                No recent inward dockets found.
                                             </td>
                                         </tr>
-                                    ))}
+                                    ) : (
+                                        recent_cases.map((c) => (
+                                            <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                                                <td className="py-2.5 px-2.5 font-mono font-bold text-indigo-700 dark:text-indigo-300">
+                                                    {c.registration_no}
+                                                </td>
+                                                <td className="py-2.5 px-2.5">
+                                                    <div className="font-semibold text-slate-900 dark:text-slate-200">{c.subscriber_name}</div>
+                                                    <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{c.gpf_account}</div>
+                                                </td>
+                                                <td className="py-2.5 px-2.5">
+                                                    <span className={`px-2 py-0.5 text-[9px] font-semibold rounded-full border ${c.status_badge}`}>
+                                                        {c.status_label}
+                                                    </span>
+                                                </td>
+                                                <td className="py-2.5 px-2.5 text-right font-mono text-slate-800 dark:text-slate-200 font-medium">
+                                                    {c.amount ? `₹ ${Number(c.amount).toLocaleString('en-IN')}` : '—'}
+                                                </td>
+                                                <td className="py-2.5 px-2.5 text-right">
+                                                    <Link
+                                                        href={`/inward/${c.id}`}
+                                                        onClick={() => audioFeedback.playClick()}
+                                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 dark:text-indigo-400 hover:text-indigo-800 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.8 rounded-lg border border-indigo-200 dark:border-indigo-500/20"
+                                                    >
+                                                        <span>Open</span>
+                                                        <ArrowUpRight className="w-2.5 h-2.5" />
+                                                    </Link>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
                     {/* Audit Timeline (1 column) */}
-                    <div className="glass-panel p-6 rounded-2xl">
-                        <h3 className="text-sm font-bold text-white flex items-center gap-2 mb-4">
-                            <ShieldAlert className="w-4 h-4 text-indigo-400" />
+                    <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800/80 shadow-xs">
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5 mb-3">
+                            <ShieldAlert className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                             <span>Workflow Audit Feed</span>
                         </h3>
 
-                        <div className="space-y-4">
-                            {recent_histories.map((h) => (
-                                <div key={h.id} className="relative pl-6 pb-2 border-l border-slate-800 last:border-l-0">
-                                    <div className="absolute -left-1.5 top-0 w-3 h-3 rounded-full bg-indigo-500 border-2 border-slate-950"></div>
-                                    <div className="text-xs font-semibold text-slate-200">
-                                        {h.performed_by}
-                                    </div>
-                                    <div className="text-[11px] text-indigo-400 font-medium mt-0.5">
-                                        {h.action_type} &bull; Case {h.case_reg}
-                                    </div>
-                                    <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">
-                                        {h.remarks}
-                                    </p>
-                                    <span className="text-[10px] text-slate-500 mt-1 block">
-                                        {h.created_at}
-                                    </span>
+                        <div className="space-y-3">
+                            {recent_histories.length === 0 ? (
+                                <div className="py-6 text-center text-slate-400 text-xs">
+                                    No audit entries logged yet.
                                 </div>
-                            ))}
+                            ) : (
+                                recent_histories.map((h) => (
+                                    <div key={h.id} className="relative pl-5 pb-1 border-l border-slate-200 dark:border-slate-800 last:border-l-0">
+                                        <div className="absolute -left-1.5 top-0.5 w-2.5 h-2.5 rounded-full bg-indigo-600 dark:bg-indigo-500 border-2 border-white dark:border-slate-950"></div>
+                                        <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                            {h.performed_by}
+                                        </div>
+                                        <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium mt-0.2">
+                                            {h.action_type} &bull; Case {h.case_reg}
+                                        </div>
+                                        <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">
+                                            {h.remarks}
+                                        </p>
+                                        <span className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5 block font-mono">
+                                            {h.created_at}
+                                        </span>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>

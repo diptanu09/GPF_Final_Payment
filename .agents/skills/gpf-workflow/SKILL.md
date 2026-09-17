@@ -220,5 +220,28 @@ If the Calculation page in Docker shows only 3 financial years (`2024-2025`, `20
   - 3D perspective tilt container with cursor spotlight border glow (`InteractiveTiltCard.jsx`).
   - Reactive SVG Security Hologram Avatar (`SecurityShieldAvatar.jsx`) responding to field focus (`idle`, `username`, `password`, `peek`, `token`, `processing`, `error`).
 
+---
+
+## 8. Layout, Navigation & Theme Design Standards
+
+### A. Compact Ergonomic Layout Scale
+- **High-Density Scaling**: High-efficiency departmental information density (`max-w-7xl`, `h-14` topbar, compact cards and metric widgets).
+- **Pinned Left Sidebar (`fixed top-14 bottom-0 left-0 z-30`)**:
+  - Anchored permanently to the left viewport; never scrolls with the page.
+  - Dedicated independent scrollbar (`overflow-y-auto thin-scrollbar`).
+  - Uses `PanelLeftClose` (when expanded) and `PanelLeftOpen` (when collapsed) for toggling width between `w-56` and `w-16`. Never uses a modal-close `"X"`.
+  - Main container content offset: `md:ml-56` (or `md:ml-16`) and `pt-14`.
+- **Top Navigation Bar Dynamic Transparency**:
+  - At scroll position 0 (`scrollY === 0`): 100% transparent (`bg-transparent border-transparent`) rendering only floating breadcrumbs, search, theme toggles, audio controls, and profile dropdowns.
+  - On scroll (`scrollY > 8`): Smoothly fades in frosted glassmorphic background (`bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 shadow-xs`).
+- **Full Light & Dark Theme Parity**:
+  - High-contrast text: `text-slate-900 dark:text-white` for primary headers, `text-slate-600 dark:text-slate-300` for secondary descriptions.
+  - Tailwind CSS v4 custom variant: `@custom-variant dark (&:where(.dark, .dark *));`.
+- **Audio Feedback**:
+  - Web Audio API zero-dependency haptic feedback with header mute toggle (`Volume2`/`VolumeX`).
+- **Omnipresent Command Palette**:
+  - `Ctrl+K` modal providing instant search for routes, statutory letter actions, and role consoles.
+
+
 
 

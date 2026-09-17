@@ -1,10 +1,13 @@
 import React, { useEffect, useRef } from 'react';
+import ThreeAuthNexus from '@/Components/Visuals/ThreeAuthNexus';
+import { ThemeProvider } from '@/Context/ThemeContext';
+import ThemeToggle from '@/Components/UI/ThemeToggle';
 
 /**
- * Interactive canvas particle constellation & ambient aurora background.
- * Adapts to mouse movements with subtle particle physics and gentle glowing nodes.
+ * Interactive canvas particle constellation & ambient 3D Torus Knot background.
+ * Adapts to mouse movements with particle physics, WebGL 3D geometry, and theme switching.
  */
-export default function AuthBackground({ children, className = '' }) {
+function AuthBackgroundContent({ children, className = '' }) {
     const canvasRef = useRef(null);
     const mouseRef = useRef({ x: null, y: null, radius: 140 });
 
@@ -82,48 +85,44 @@ export default function AuthBackground({ children, className = '' }) {
                     const dy = particles[i].y - particles[j].y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
-                    if (dist < 120) {
-                        const lineAlpha = (1 - dist / 120) * 0.16;
+                    if (dist < 115) {
+                        const lineAlpha = (1 - dist / 115) * 0.18;
                         ctx.beginPath();
+                        ctx.strokeStyle = `rgba(129, 140, 248, ${lineAlpha})`;
+                        ctx.lineWidth = 0.85;
                         ctx.moveTo(particles[i].x, particles[i].y);
                         ctx.lineTo(particles[j].x, particles[j].y);
-                        ctx.strokeStyle = `rgba(129, 140, 248, ${lineAlpha})`;
-                        ctx.lineWidth = 0.8;
                         ctx.stroke();
                     }
                 }
             }
 
-            // Update & render particles
+            // Update & Draw particles
             for (let i = 0; i < particles.length; i++) {
                 const p = particles[i];
-
-                // Mouse interaction physics
-                if (mx !== null && my !== null) {
-                    const dx = p.x - mx;
-                    const dy = p.y - my;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-
-                    if (dist < mRadius && dist > 0) {
-                        const force = (mRadius - dist) / mRadius;
-                        const angle = Math.atan2(dy, dx);
-                        p.x += Math.cos(angle) * force * 1.5;
-                        p.y += Math.sin(angle) * force * 1.5;
-                    }
-                }
 
                 p.x += p.vx;
                 p.y += p.vy;
 
-                // Screen boundaries wrap-around
-                if (p.x < -10) p.x = width + 10;
-                else if (p.x > width + 10) p.x = -10;
-                if (p.y < -10) p.y = height + 10;
-                else if (p.y > height + 10) p.y = -10;
+                // Bounce at edges
+                if (p.x < 0 || p.x > width) p.vx *= -1;
+                if (p.y < 0 || p.y > height) p.vy *= -1;
 
-                // Pulsing dot brightness
-                const currentAlpha = p.alpha + Math.sin(time + p.pulseOffset) * 0.15;
-                const safeAlpha = Math.max(0.1, Math.min(0.75, currentAlpha));
+                // Mouse interaction
+                if (mx !== null && my !== null) {
+                    const dx = mx - p.x;
+                    const dy = my - p.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < mRadius) {
+                        const force = (mRadius - dist) / mRadius;
+                        p.x -= (dx / dist) * force * 1.8;
+                        p.y -= (dy / dist) * force * 1.8;
+                    }
+                }
+
+                const currentAlpha = p.alpha + Math.sin(time * p.pulseSpeed * 60 + p.pulseOffset) * 0.15;
+                const safeAlpha = Math.max(0.1, Math.min(0.85, currentAlpha));
 
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
@@ -148,11 +147,16 @@ export default function AuthBackground({ children, className = '' }) {
     }, []);
 
     return (
-        <div className="relative min-h-screen w-full bg-slate-950 overflow-hidden font-sans select-none">
+        <div className="relative min-h-screen w-full bg-slate-950 dark:bg-slate-950 overflow-hidden font-sans select-none">
+            {/* Ambient 3D Three.js Torus Knot Nexus */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30 z-0">
+                <ThreeAuthNexus height={600} className="w-full h-full max-w-2xl" />
+            </div>
+
             {/* Interactive Particle Network Canvas */}
             <canvas
                 ref={canvasRef}
-                className="absolute inset-0 pointer-events-none z-0 opacity-70"
+                className="absolute inset-0 pointer-events-none z-0 opacity-60"
             />
 
             {/* Ambient Aurora Gradient Orbs */}
@@ -160,11 +164,23 @@ export default function AuthBackground({ children, className = '' }) {
             <div className="absolute top-1/3 -left-32 w-[520px] h-[360px] bg-cyan-600/10 blur-[130px] rounded-full pointer-events-none animate-float-gentle"></div>
             <div className="absolute bottom-12 right-[-5%] w-[580px] h-[380px] bg-emerald-600/10 blur-[140px] rounded-full pointer-events-none animate-float-gentle" style={{ animationDelay: '2.5s' }}></div>
 
+            {/* Top Bar Theme Switcher */}
+            <div className="absolute top-4 right-4 z-20">
+                <ThemeToggle />
+            </div>
 
             {/* Centered Content Container */}
             <div className={`relative z-10 w-full min-h-screen flex flex-col justify-center items-center px-4 py-8 sm:py-12 ${className}`}>
                 {children}
             </div>
         </div>
+    );
+}
+
+export default function AuthBackground(props) {
+    return (
+        <ThemeProvider>
+            <AuthBackgroundContent {...props} />
+        </ThemeProvider>
     );
 }
