@@ -19,20 +19,20 @@ export default function Index({ authorities }) {
             <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                            <Award className="w-6 h-6 text-emerald-400" />
+                        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                            <Award className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                             <span>Payment Authorities & Digital Signature Register</span>
                         </h2>
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                             Official statutory payment orders, PKI USB token signatures, and outward authorizations.
                         </p>
                     </div>
                 </div>
 
-                <div className="glass-panel rounded-2xl overflow-hidden">
+                <div className="glass-panel app-card rounded-2xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-900/80 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
+                            <thead className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold uppercase tracking-wider">
                                 <tr>
                                     <th className="py-3.5 px-4">Authority No</th>
                                     <th className="py-3.5 px-4">Date</th>
@@ -43,7 +43,7 @@ export default function Index({ authorities }) {
                                     <th className="py-3.5 px-4 text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800/60">
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
                                 {authorities.data.length === 0 ? (
                                     <tr>
                                         <td colSpan="7" className="py-12 text-center text-slate-500 text-sm">
@@ -52,49 +52,49 @@ export default function Index({ authorities }) {
                                     </tr>
                                 ) : (
                                     authorities.data.map((a) => (
-                                        <tr key={a.id} className="hover:bg-slate-900/40 transition">
-                                            <td className="py-3.5 px-4 font-mono font-bold text-indigo-300">
+                                        <tr key={a.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition">
+                                            <td className="py-3.5 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">
                                                 {a.authority_number}
-                                                <span className="ml-2 px-2 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-400 border border-slate-700">
+                                                <span className="ml-2 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-700 dark:text-slate-400 border border-slate-200 dark:border-slate-700 font-sans">
                                                     {a.authority_type}
                                                 </span>
                                             </td>
-                                            <td className="py-3.5 px-4 text-slate-300">
+                                            <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300 font-sans">
                                                 {a.authority_date}
                                             </td>
                                             <td className="py-3.5 px-4">
-                                                <div className="font-semibold text-slate-200">{a.subscriber_name}</div>
-                                                <div className="text-[11px] text-slate-400 font-mono">{a.gpf_account}</div>
+                                                <div className="font-semibold text-slate-900 dark:text-slate-100 font-sans">{a.subscriber_name}</div>
+                                                <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">{a.gpf_account}</div>
                                             </td>
-                                            <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-400 text-sm">
+                                            <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                                                 ₹ {Number(a.net_amount).toLocaleString('en-IN')}
                                             </td>
                                             <td className="py-3.5 px-4 text-center">
                                                 {a.is_signed ? (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-500/10 text-teal-300 border border-teal-500/20 text-[10px] font-semibold">
-                                                        <ShieldCheck className="w-3 h-3 text-teal-400" />
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-500/10 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-500/20 text-[10px] font-semibold font-sans">
+                                                        <ShieldCheck className="w-3 h-3 text-teal-600 dark:text-teal-400" />
                                                         <span>Signed ({a.signed_by})</span>
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-semibold">
-                                                        <Clock className="w-3 h-3" />
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 text-[10px] font-semibold font-sans">
+                                                        <Clock className="w-3 h-3 text-amber-600" />
                                                         <span>Pending Signature</span>
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="py-3.5 px-4 text-center">
                                                 {a.is_uploaded_hrms ? (
-                                                    <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[10px] font-semibold">
+                                                    <span className="px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-500/10 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-500/20 text-[10px] font-semibold font-sans">
                                                         Synced
                                                     </span>
                                                 ) : (
-                                                    <span className="text-[11px] text-slate-500">Not uploaded</span>
+                                                    <span className="text-[11px] text-slate-500 font-sans">Not uploaded</span>
                                                 )}
                                             </td>
-                                            <td className="py-3.5 px-4 text-right space-x-2">
+                                            <td className="py-3.5 px-4 text-right space-x-2 font-sans">
                                                 <Link
                                                     href={`/authority/${a.id}`}
-                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg shadow-sm"
+                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg shadow-2xs transition"
                                                 >
                                                     <span>Open Order</span>
                                                     <ArrowUpRight className="w-3 h-3" />
@@ -103,7 +103,7 @@ export default function Index({ authorities }) {
                                                     href={`/authority/${a.id}/print`}
                                                     target="_blank"
                                                     rel="noreferrer"
-                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-300 hover:text-white bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-700"
+                                                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-2xs transition"
                                                 >
                                                     <Printer className="w-3 h-3" />
                                                     <span>Print FP</span>
@@ -113,7 +113,7 @@ export default function Index({ authorities }) {
                                                         href={`/authority/${a.id}/print-dlis`}
                                                         target="_blank"
                                                         rel="noreferrer"
-                                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-300 hover:text-white bg-cyan-950/60 px-2.5 py-1.5 rounded-lg border border-cyan-800/80"
+                                                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-700 hover:text-cyan-900 dark:text-cyan-300 dark:hover:text-white bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/60 dark:hover:bg-cyan-900/60 px-2.5 py-1.5 rounded-lg border border-cyan-200 dark:border-cyan-800/80 shadow-2xs transition"
                                                     >
                                                         <Printer className="w-3 h-3" />
                                                         <span>DLIS</span>

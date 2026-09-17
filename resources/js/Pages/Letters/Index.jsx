@@ -155,32 +155,32 @@ export default function LettersIndex({ cases, filters }) {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                            <Layers className="w-6 h-6 text-indigo-400" />
+                        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                            <Layers className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                             <span>Statutory Letters & Notices Hub</span>
                         </h2>
-                        <p className="text-xs text-slate-400 mt-1">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                             Official AG Tripura letter generations: Input Sheets, Annexure 5.24 Intimations, Corrigendums, Revalidations, Objections, and Rule 11(7) Minus Balance Notices.
                         </p>
                     </div>
 
                     {/* Filter Tabs */}
-                    <div className="flex items-center gap-1.5 p-1 bg-slate-900/80 border border-slate-800 rounded-xl text-xs">
+                    <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl text-xs">
                         <button
                             onClick={() => handleTypeChange('all')}
-                            className={`px-3 py-1.5 rounded-lg font-medium transition ${activeType === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                            className={`px-3 py-1.5 rounded-lg font-medium transition ${activeType === 'all' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
                         >
                             All Cases
                         </button>
                         <button
                             onClick={() => handleTypeChange('authorized')}
-                            className={`px-3 py-1.5 rounded-lg font-medium transition ${activeType === 'authorized' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                            className={`px-3 py-1.5 rounded-lg font-medium transition ${activeType === 'authorized' ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
                         >
                             Authorized (DSC)
                         </button>
                         <button
                             onClick={() => handleTypeChange('minus_balance')}
-                            className={`px-3 py-1.5 rounded-lg font-medium transition ${activeType === 'minus_balance' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                            className={`px-3 py-1.5 rounded-lg font-medium transition ${activeType === 'minus_balance' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
                         >
                             Minus Balance (Rule 11)
                         </button>
@@ -188,21 +188,21 @@ export default function LettersIndex({ cases, filters }) {
                 </div>
 
                 {/* Search Bar */}
-                <div className="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row gap-3">
+                <div className="glass-panel app-card p-4 rounded-2xl flex flex-col sm:flex-row gap-3">
                     <form onSubmit={handleSearch} className="flex-1 flex gap-2">
                         <div className="relative flex-1">
-                            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                             <input
                                 type="text"
                                 placeholder="Search by Registration No, GPF Account, Subscriber Name, Employee Code..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 bg-slate-900/60 border border-slate-700/60 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-950/60 border border-slate-300 dark:border-slate-700/60 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 shadow-2xs transition"
                             />
                         </div>
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition flex items-center gap-1.5"
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
                         >
                             <Filter className="w-3.5 h-3.5" />
                             <span>Filter</span>
@@ -211,10 +211,10 @@ export default function LettersIndex({ cases, filters }) {
                 </div>
 
                 {/* Cases Table with Statutory Action Buttons */}
-                <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800/80">
+                <div className="glass-panel app-card rounded-2xl overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-900/80 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
+                            <thead className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold uppercase tracking-wider">
                                 <tr>
                                     <th className="py-3 px-4">Registration & Account</th>
                                     <th className="py-3 px-4">Subscriber Details</th>
@@ -222,32 +222,32 @@ export default function LettersIndex({ cases, filters }) {
                                     <th className="py-3 px-4">Statutory Letters & Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800/60 font-mono">
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
                                 {cases.data?.length > 0 ? (
                                     cases.data.map((c) => (
-                                        <tr key={c.id} className="hover:bg-slate-900/40 transition">
+                                        <tr key={c.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition">
                                             <td className="py-3 px-4 font-sans">
-                                                <div className="font-bold text-slate-100 font-mono text-sm">{c.registration_no}</div>
-                                                <div className="text-[11px] text-indigo-400 font-mono">{c.gpf_account}</div>
+                                                <div className="font-bold text-slate-900 dark:text-slate-100 font-mono text-sm">{c.registration_no}</div>
+                                                <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-mono font-medium">{c.gpf_account}</div>
                                                 {c.authority_no && (
                                                     <div className="text-[10px] text-slate-500 font-mono mt-0.5">Auth: {c.authority_no}</div>
                                                 )}
                                             </td>
 
                                             <td className="py-3 px-4 font-sans">
-                                                <div className="font-semibold text-slate-200">{c.subscriber_name}</div>
-                                                <div className="text-[11px] text-slate-400">{c.designation || 'N/A'}</div>
+                                                <div className="font-semibold text-slate-900 dark:text-slate-200">{c.subscriber_name}</div>
+                                                <div className="text-[11px] text-slate-500 dark:text-slate-400">{c.designation || 'N/A'}</div>
                                             </td>
 
                                             <td className="py-3 px-4">
                                                 <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold border rounded-full ${c.status_badge}`}>
                                                     {c.status_label}
                                                 </span>
-                                                <div className={`mt-1 font-bold text-xs ${c.is_minus_balance ? 'text-rose-400' : 'text-slate-200'}`}>
+                                                <div className={`mt-1 font-bold text-xs ${c.is_minus_balance ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-slate-200'}`}>
                                                     {c.is_minus_balance ? `Minus: ₹ ${Math.abs(c.net_amount).toFixed(2)}` : `Net: ₹ ${c.net_amount?.toFixed(2)}`}
                                                 </div>
                                                 {c.amount_recovered > 0 && (
-                                                    <div className="text-[10px] text-emerald-400 font-sans">
+                                                    <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-sans font-semibold">
                                                         Recovered: ₹ {c.amount_recovered.toFixed(2)}
                                                     </div>
                                                 )}
@@ -260,10 +260,10 @@ export default function LettersIndex({ cases, filters }) {
                                                         href={`/letters/input-sheet/${c.id}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
+                                                        className="px-2.5 py-1 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/80 rounded-lg text-[11px] font-medium shadow-2xs transition flex items-center gap-1"
                                                         title="View & Print Official Input Sheet (DEO, AAO, Sr. AO signatures)"
                                                     >
-                                                        <FileText className="w-3 h-3 text-indigo-400" />
+                                                        <FileText className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
                                                         <span>Input Sheet</span>
                                                     </a>
 
@@ -273,10 +273,10 @@ export default function LettersIndex({ cases, filters }) {
                                                             href={`/letters/intimation/${c.id}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="px-2.5 py-1 bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
+                                                            className="px-2.5 py-1 bg-teal-50 dark:bg-teal-500/10 hover:bg-teal-100 dark:hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
                                                             title="Annexure 5.24: Intimation to Subscriber on Authorization"
                                                         >
-                                                            <Send className="w-3 h-3 text-teal-400" />
+                                                            <Send className="w-3 h-3 text-teal-600 dark:text-teal-400" />
                                                             <span>Intimation</span>
                                                         </a>
                                                     )}
@@ -284,10 +284,10 @@ export default function LettersIndex({ cases, filters }) {
                                                     {/* 3. Corrigendum */}
                                                     <button
                                                         onClick={() => openCorrigendumModal(c)}
-                                                        className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
+                                                        className="px-2.5 py-1 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
                                                         title="Generate official Corrigendum Amendment Order"
                                                     >
-                                                        <Edit3 className="w-3 h-3 text-amber-400" />
+                                                        <Edit3 className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                                                         <span>Corrigendum</span>
                                                     </button>
 
@@ -296,20 +296,20 @@ export default function LettersIndex({ cases, filters }) {
                                                         href={`/letters/revalidation/${c.id}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
+                                                        className="px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
                                                         title="Revalidate lapsed authority to Treasury Officer"
                                                     >
-                                                        <RotateCcw className="w-3 h-3 text-blue-400" />
+                                                        <RotateCcw className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                                                         <span>Revalidate</span>
                                                     </a>
 
                                                     {/* 5. Objection / Return Memo */}
                                                     <button
                                                         onClick={() => openObjectionModal(c)}
-                                                        className="px-2.5 py-1 bg-orange-500/10 hover:bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
+                                                        className="px-2.5 py-1 bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
                                                         title="Return Docket to DDO with statutory defect checklist"
                                                     >
-                                                        <FileX className="w-3 h-3 text-orange-400" />
+                                                        <FileX className="w-3 h-3 text-orange-600 dark:text-orange-400" />
                                                         <span>Objection Memo</span>
                                                     </button>
 
@@ -320,18 +320,18 @@ export default function LettersIndex({ cases, filters }) {
                                                                 href={`/letters/minus-balance/${c.id}`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
+                                                                className="px-2.5 py-1 bg-rose-50 dark:bg-rose-500/15 hover:bg-rose-100 dark:hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
                                                                 title="Rule 11(7) Minus Balance Notice"
                                                             >
-                                                                <ShieldAlert className="w-3 h-3 text-rose-400" />
+                                                                <ShieldAlert className="w-3 h-3 text-rose-600 dark:text-rose-400" />
                                                                 <span>Notice (R11)</span>
                                                             </a>
                                                             <button
                                                                 onClick={() => openRecoveryModal(c)}
-                                                                className="px-2 py-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
+                                                                className="px-2 py-1 bg-emerald-50 dark:bg-emerald-500/15 hover:bg-emerald-100 dark:hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 rounded-lg text-[11px] font-medium transition flex items-center gap-1"
                                                                 title="Record Minus Balance Recovery"
                                                             >
-                                                                <DollarSign className="w-3 h-3 text-emerald-400" />
+                                                                <DollarSign className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                                                 <span>Recovery</span>
                                                             </button>
                                                         </div>
@@ -353,13 +353,13 @@ export default function LettersIndex({ cases, filters }) {
 
                     {/* Pagination */}
                     {cases.links && cases.links.length > 3 && (
-                        <div className="p-4 border-t border-slate-800 flex justify-end gap-1">
+                        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-1">
                             {cases.links.map((l, i) => (
                                 <Link
                                     key={i}
                                     href={l.url || '#'}
                                     dangerouslySetInnerHTML={{ __html: l.label }}
-                                    className={`px-3 py-1 text-xs rounded-lg transition ${l.active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'} ${!l.url && 'opacity-40 cursor-not-allowed'}`}
+                                    className={`px-3 py-1 text-xs rounded-lg transition ${l.active ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'} ${!l.url && 'opacity-40 cursor-not-allowed'}`}
                                 />
                             ))}
                         </div>
@@ -369,30 +369,30 @@ export default function LettersIndex({ cases, filters }) {
 
             {/* Minus Balance Recovery Modal */}
             {recoveryModalCase && (
-                <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                            <h3 className="text-base font-bold text-white flex items-center gap-2">
-                                <DollarSign className="w-5 h-5 text-emerald-400" />
+                <div className="fixed inset-0 z-50 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                 <span>Record Minus Balance Recovery</span>
                             </h3>
                             <button
                                 onClick={() => setRecoveryModalCase(null)}
-                                className="text-slate-400 hover:text-white"
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
                             >
                                 ✕
                             </button>
                         </div>
 
-                        <div className="text-xs text-slate-300 space-y-1 bg-slate-950/50 p-3 rounded-xl border border-slate-800">
-                            <div><strong>Registration No:</strong> <span className="font-mono text-indigo-300">{recoveryModalCase.registration_no}</span></div>
+                        <div className="text-xs text-slate-700 dark:text-slate-300 space-y-1 bg-slate-50 dark:bg-slate-950/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                            <div><strong>Registration No:</strong> <span className="font-mono text-indigo-600 dark:text-indigo-300">{recoveryModalCase.registration_no}</span></div>
                             <div><strong>Subscriber:</strong> {recoveryModalCase.subscriber_name} ({recoveryModalCase.gpf_account})</div>
-                            <div><strong>Total Overdrawn:</strong> <span className="text-rose-400 font-bold">₹ {Math.abs(recoveryModalCase.net_amount).toFixed(2)}</span></div>
+                            <div><strong>Total Overdrawn:</strong> <span className="text-rose-600 dark:text-rose-400 font-bold">₹ {Math.abs(recoveryModalCase.net_amount).toFixed(2)}</span></div>
                         </div>
 
                         <form onSubmit={submitRecovery} className="space-y-4">
                             <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                                     Amount Recovered (₹) *
                                 </label>
                                 <input
@@ -401,13 +401,13 @@ export default function LettersIndex({ cases, filters }) {
                                     required
                                     value={recoveryForm.amount_recovered}
                                     onChange={(e) => setRecoveryForm({ ...recoveryForm, amount_recovered: e.target.value })}
-                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:border-indigo-500 focus:outline-none"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none shadow-2xs"
                                     placeholder="Enter recovered figure"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                                     Recovery Remarks & Challan Details *
                                 </label>
                                 <textarea
@@ -415,32 +415,32 @@ export default function LettersIndex({ cases, filters }) {
                                     rows="3"
                                     value={recoveryForm.remarks}
                                     onChange={(e) => setRecoveryForm({ ...recoveryForm, remarks: e.target.value })}
-                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:border-indigo-500 focus:outline-none"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none shadow-2xs"
                                     placeholder="Enter Treasury Challan No, date, DCRG recovery voucher particulars..."
                                 />
                             </div>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
                                 <input
                                     type="checkbox"
                                     checked={recoveryForm.close_minus_balance}
                                     onChange={(e) => setRecoveryForm({ ...recoveryForm, close_minus_balance: e.target.checked })}
-                                    className="rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500"
+                                    className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-indigo-600 focus:ring-indigo-500"
                                 />
                                 <span>Mark Minus Balance as Fully Settled / Closed</span>
                             </label>
 
-                            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                                 <button
                                     type="button"
                                     onClick={() => setRecoveryModalCase(null)}
-                                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl transition"
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-xl transition"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl transition flex items-center gap-1.5"
+                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
                                 >
                                     <CheckCircle2 className="w-4 h-4" />
                                     <span>Save Recovery</span>
@@ -453,16 +453,16 @@ export default function LettersIndex({ cases, filters }) {
 
             {/* Corrigendum Builder Modal */}
             {corrigendumModalCase && (
-                <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                            <h3 className="text-base font-bold text-white flex items-center gap-2">
-                                <Edit3 className="w-5 h-5 text-amber-400" />
+                <div className="fixed inset-0 z-50 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <Edit3 className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                                 <span>Generate Corrigendum Order</span>
                             </h3>
                             <button
                                 onClick={() => setCorrigendumModalCase(null)}
-                                className="text-slate-400 hover:text-white"
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
                             >
                                 ✕
                             </button>
@@ -470,7 +470,7 @@ export default function LettersIndex({ cases, filters }) {
 
                         <form onSubmit={submitCorrigendum} className="space-y-4">
                             <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                                     Amendment Matter *
                                 </label>
                                 <textarea
@@ -478,45 +478,45 @@ export default function LettersIndex({ cases, filters }) {
                                     rows="5"
                                     value={corrigendumForm.matter}
                                     onChange={(e) => setCorrigendumForm({ ...corrigendumForm, matter: e.target.value })}
-                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:border-indigo-500 focus:outline-none"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none shadow-2xs"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                                     Copy Forwarded (Endorsement)
                                 </label>
                                 <textarea
                                     rows="3"
                                     value={corrigendumForm.copy_to}
                                     onChange={(e) => setCorrigendumForm({ ...corrigendumForm, copy_to: e.target.value })}
-                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:border-indigo-500 focus:outline-none"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none shadow-2xs"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                                     Signatory Title
                                 </label>
                                 <input
                                     type="text"
                                     value={corrigendumForm.signature}
                                     onChange={(e) => setCorrigendumForm({ ...corrigendumForm, signature: e.target.value })}
-                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:border-indigo-500 focus:outline-none"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none shadow-2xs"
                                 />
                             </div>
 
-                            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                                 <button
                                     type="button"
                                     onClick={() => setCorrigendumModalCase(null)}
-                                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl transition"
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-xl transition"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs rounded-xl transition flex items-center gap-1.5"
+                                    className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
                                 >
                                     <Printer className="w-4 h-4" />
                                     <span>Print Corrigendum</span>
@@ -529,16 +529,16 @@ export default function LettersIndex({ cases, filters }) {
 
             {/* Objection / Return Memo Builder Modal */}
             {objectionModalCase && (
-                <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                            <h3 className="text-base font-bold text-white flex items-center gap-2">
-                                <FileX className="w-5 h-5 text-orange-400" />
+                <div className="fixed inset-0 z-50 bg-slate-950/60 dark:bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <FileX className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                                 <span>Objection / Return Memorandum to DDO</span>
                             </h3>
                             <button
                                 onClick={() => setObjectionModalCase(null)}
-                                className="text-slate-400 hover:text-white"
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
                             >
                                 ✕
                             </button>
@@ -546,26 +546,26 @@ export default function LettersIndex({ cases, filters }) {
 
                         <form onSubmit={submitObjection} className="space-y-4">
                             <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                                     Opening Statement
                                 </label>
                                 <textarea
                                     rows="2"
                                     value={objectionForm.custom_remarks}
                                     onChange={(e) => setObjectionForm({ ...objectionForm, custom_remarks: e.target.value })}
-                                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:border-indigo-500 focus:outline-none"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none shadow-2xs"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-2">
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
                                     Select Objection / Discrepancy Points:
                                 </label>
-                                <div className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800 max-h-48 overflow-y-auto text-xs">
+                                <div className="space-y-2 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 max-h-48 overflow-y-auto text-xs">
                                     {objectionForm.points.map((pt, idx) => {
                                         const isChecked = objectionForm.selectedPoints.includes(pt);
                                         return (
-                                            <label key={idx} className="flex items-start gap-2 cursor-pointer text-slate-300 hover:text-white">
+                                            <label key={idx} className="flex items-start gap-2 cursor-pointer text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
                                                 <input
                                                     type="checkbox"
                                                     checked={isChecked}
@@ -575,7 +575,7 @@ export default function LettersIndex({ cases, filters }) {
                                                             : objectionForm.selectedPoints.filter(p => p !== pt);
                                                         setObjectionForm({ ...objectionForm, selectedPoints: newPts });
                                                     }}
-                                                    className="rounded border-slate-700 bg-slate-900 text-orange-600 focus:ring-orange-500 mt-0.5"
+                                                    className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-orange-600 focus:ring-orange-500 mt-0.5"
                                                 />
                                                 <span>{pt}</span>
                                             </label>
@@ -584,17 +584,17 @@ export default function LettersIndex({ cases, filters }) {
                                 </div>
                             </div>
 
-                            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                                 <button
                                     type="button"
                                     onClick={() => setObjectionModalCase(null)}
-                                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-xl transition"
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-xl transition"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold text-xs rounded-xl transition flex items-center gap-1.5"
+                                    className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
                                 >
                                     <Printer className="w-4 h-4" />
                                     <span>Print Objection Memo</span>

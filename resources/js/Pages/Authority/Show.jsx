@@ -73,28 +73,28 @@ export default function Show({ authority, case_data, calculation, nominees, amou
                     <div className="flex items-center gap-3">
                         <Link
                             href="/authority"
-                            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition"
+                            className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700 transition shadow-2xs"
                         >
                             <ArrowLeft className="w-4 h-4" />
                         </Link>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h2 className="text-lg font-bold tracking-tight text-white font-mono">
+                                <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-mono">
                                     {authority.authority_number}
                                 </h2>
                                 {authority.is_signed ? (
-                                    <span className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-teal-500/10 text-teal-300 border border-teal-500/20 flex items-center gap-1">
-                                        <ShieldCheck className="w-3 h-3 text-teal-400" />
+                                    <span className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-500/20 flex items-center gap-1">
+                                        <ShieldCheck className="w-3 h-3 text-teal-600 dark:text-teal-400" />
                                         <span>Digitally Signed</span>
                                     </span>
                                 ) : (
-                                    <span className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                    <span className="px-2.5 py-0.5 text-[10px] font-semibold rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
                                         Pending Digital Signature
                                     </span>
                                 )}
                             </div>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                                Case: <strong className="text-slate-200 font-mono">{case_data.registration_no}</strong> &bull; Date: {authority.authority_date}
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                Case: <strong className="text-slate-800 dark:text-slate-200 font-mono">{case_data.registration_no}</strong> &bull; Date: {authority.authority_date}
                             </p>
                         </div>
                     </div>
@@ -104,7 +104,7 @@ export default function Show({ authority, case_data, calculation, nominees, amou
                             <button
                                 type="button"
                                 onClick={() => setSignModalOpen(true)}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/25 transition"
+                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/25 transition"
                             >
                                 <Key className="w-4 h-4" />
                                 <span>Sign with USB DSC</span>
@@ -115,7 +115,7 @@ export default function Show({ authority, case_data, calculation, nominees, amou
                             href={`/authority/${authority.id}/print`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 transition"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition"
                         >
                             <Printer className="w-3.5 h-3.5" />
                             <span>Print Authority</span>
@@ -126,7 +126,7 @@ export default function Show({ authority, case_data, calculation, nominees, amou
                                 href={`/authority/${authority.id}/print-dlis`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-lg shadow-cyan-600/20 transition"
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-md shadow-cyan-600/20 transition"
                             >
                                 <Printer className="w-3.5 h-3.5" />
                                 <span>Print DLIS Order</span>
@@ -137,14 +137,14 @@ export default function Show({ authority, case_data, calculation, nominees, amou
 
                 {/* Tab selector when DLIS is present */}
                 {hasDlis && (
-                    <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
                         <button
                             type="button"
                             onClick={() => setActiveDocTab('authority')}
                             className={`px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
                                 activeDocTab === 'authority'
-                                    ? 'bg-indigo-600 text-white shadow-sm'
-                                    : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-800'
+                                    ? 'bg-indigo-600 text-white shadow-xs'
+                                    : 'bg-white dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800'
                             }`}
                         >
                             <FileText className="w-4 h-4" />
@@ -155,8 +155,8 @@ export default function Show({ authority, case_data, calculation, nominees, amou
                             onClick={() => setActiveDocTab('dlis')}
                             className={`px-4 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2 ${
                                 activeDocTab === 'dlis'
-                                    ? 'bg-cyan-600 text-white shadow-sm'
-                                    : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-800'
+                                    ? 'bg-cyan-600 text-white shadow-xs'
+                                    : 'bg-white dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800'
                             }`}
                         >
                             <Award className="w-4 h-4" />
@@ -167,71 +167,71 @@ export default function Show({ authority, case_data, calculation, nominees, amou
 
                 {/* Document Preview Card */}
                 {activeDocTab === 'authority' ? (
-                    <div className="glass-panel p-8 rounded-2xl space-y-6 border border-slate-800 bg-slate-950/40">
+                    <div className="glass-panel app-card p-8 rounded-2xl space-y-6 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/40 shadow-sm">
                         {/* Statutory Header */}
-                        <div className="text-center border-b border-slate-800 pb-4">
-                            <div className="text-sm font-bold text-slate-200">
+                        <div className="text-center border-b border-slate-200 dark:border-slate-800 pb-4">
+                            <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                 महालेखाकार का कार्यालय (लेखा एवं हक), त्रिपुरा - अगरतला
                             </div>
-                            <h1 className="text-base font-bold text-white mt-0.5 tracking-wide">
+                            <h1 className="text-base font-bold text-slate-900 dark:text-white mt-0.5 tracking-wide">
                                 OFFICE OF THE ACCOUNTANT GENERAL (A & E), TRIPURA ::: AGARTALA
                             </h1>
-                            <p className="text-[11px] text-slate-400 mt-1 font-mono">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 font-mono">
                                 {authority.authority_number} &bull; Date: {authority.authority_date}
                             </p>
                         </div>
 
                         {/* Title */}
                         <div className="text-center">
-                            <span className="text-sm font-bold text-indigo-300 uppercase tracking-wider underline">
+                            <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider underline">
                                 Authorization Letter
                             </span>
                         </div>
 
                         {/* Legal terms preamble */}
-                        <div className="text-xs text-slate-300 leading-relaxed text-justify space-y-2 bg-slate-900/40 p-4 rounded-xl border border-slate-800/80">
+                        <div className="text-xs text-slate-800 dark:text-slate-300 leading-relaxed text-justify space-y-2 bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800/80">
                             <p>
-                                In terms of Rule 31 / 32 / 33 of Central GPF Rule 1960 ( As adopted by the state ) / Rule 28 of All India Service GPF Rules 1955, as applicable, the authorization for payment of <strong className="text-emerald-400">₹ {Number(authority.net_amount).toLocaleString('en-IN')}/- ({amount_in_words})</strong> is hereby accorded towards final withdrawal from GPF account of <strong className="text-white">{case_data.name_title} {case_data.subscriber_name_cache}</strong>, <strong className="text-slate-200">{case_data.designation_title} {case_data.designation}</strong>, <strong className="text-indigo-300 font-mono">Account no. {case_data.formatted_gpf_account}</strong> with interest calculated upto <strong className="text-white">{calculation?.interest_allowed_upto || 'Final Month'}</strong>.
+                                In terms of Rule 31 / 32 / 33 of Central GPF Rule 1960 ( As adopted by the state ) / Rule 28 of All India Service GPF Rules 1955, as applicable, the authorization for payment of <strong className="text-emerald-700 dark:text-emerald-400">₹ {Number(authority.net_amount).toLocaleString('en-IN')}/- ({amount_in_words})</strong> is hereby accorded towards final withdrawal from GPF account of <strong className="text-slate-900 dark:text-white">{case_data.name_title} {case_data.subscriber_name_cache}</strong>, <strong className="text-slate-800 dark:text-slate-200">{case_data.designation_title} {case_data.designation}</strong>, <strong className="text-indigo-600 dark:text-indigo-300 font-mono">Account no. {case_data.formatted_gpf_account}</strong> with interest calculated upto <strong className="text-slate-900 dark:text-white">{calculation?.interest_allowed_upto || 'Final Month'}</strong>.
                             </p>
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                 2. Authority for the payment of the residual balance, if any, will be issued as soon as credit(s) for <strong>nil</strong> is/are traced and adjusted.
                             </p>
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                 3. The payment is debitable to the head of account <strong>8009-01-101</strong> (for Govt of Tripura) / <strong>8009-01-104</strong> (for AIS).
                             </p>
                         </div>
 
                         {/* 5-Column Financial Working Table */}
                         <div className="space-y-2">
-                            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                                 4. Statutory Payable Sum Working Breakdown
                             </h4>
-                            <div className="rounded-xl overflow-hidden border border-slate-800">
+                            <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
                                 <table className="w-full text-center text-xs">
-                                    <thead className="bg-slate-900/90 text-slate-400 font-semibold border-b border-slate-800">
+                                    <thead className="bg-slate-50 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800">
                                         <tr>
                                             <th className="py-2.5 px-3">O.B. at Beginning (₹)</th>
                                             <th className="py-2.5 px-3">Subscription & Refund (₹)</th>
                                             <th className="py-2.5 px-3">Withdrawal / Advance (₹)</th>
                                             <th className="py-2.5 px-3">Interest Computed (₹)</th>
-                                            <th className="py-2.5 px-3 font-bold text-emerald-400">Closing Balance (₹)</th>
+                                            <th className="py-2.5 px-3 font-bold text-emerald-700 dark:text-emerald-400">Closing Balance (₹)</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="font-mono divide-y divide-slate-800/60">
+                                    <tbody className="font-mono divide-y divide-slate-100 dark:divide-slate-800/60">
                                         <tr>
-                                            <td className="py-3 px-3 text-slate-300">
+                                            <td className="py-3 px-3 text-slate-700 dark:text-slate-300">
                                                 ₹ {Number(calculation?.opening_balance_amount || 0).toLocaleString('en-IN')}
                                             </td>
-                                            <td className="py-3 px-3 text-emerald-400">
+                                            <td className="py-3 px-3 text-emerald-600 dark:text-emerald-400 font-semibold">
                                                 + ₹ {Number((Number(calculation?.total_subscriptions || 0) + Number(calculation?.excess_deposits || 0) + Number(calculation?.total_refunds || 0))).toLocaleString('en-IN')}
                                             </td>
-                                            <td className="py-3 px-3 text-rose-400">
+                                            <td className="py-3 px-3 text-rose-600 dark:text-rose-400 font-semibold">
                                                 - ₹ {Number(calculation?.total_withdrawals || 0).toLocaleString('en-IN')}
                                             </td>
-                                            <td className="py-3 px-3 text-indigo-400">
+                                            <td className="py-3 px-3 text-indigo-600 dark:text-indigo-400 font-semibold">
                                                 + ₹ {Number((Number(calculation?.actual_interest_computed || 0) + Number(calculation?.delayed_interest_computed || 0)) || calculation?.total_interest_computed || 0).toLocaleString('en-IN')}
                                             </td>
-                                            <td className="py-3 px-3 font-bold text-emerald-400 text-sm">
+                                            <td className="py-3 px-3 font-bold text-emerald-700 dark:text-emerald-400 text-sm">
                                                 ₹ {Number(authority.net_amount).toLocaleString('en-IN')}
                                             </td>
                                         </tr>
@@ -243,28 +243,28 @@ export default function Show({ authority, case_data, calculation, nominees, amou
                         {/* Nominees Matrix if available */}
                         {nominees && nominees.length > 0 && (
                             <div className="space-y-2">
-                                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                                     Beneficiary & Legal Claimants Distribution
                                 </h4>
-                                <div className="rounded-xl overflow-hidden border border-slate-800">
+                                <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
                                     <table className="w-full text-left text-xs">
-                                        <thead className="bg-slate-900/60 text-slate-400 font-semibold">
+                                        <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-800">
                                             <tr>
-                                                <th className="py-2 px-3">Nominee Name</th>
-                                                <th className="py-2 px-3">Beneficiary Code</th>
-                                                <th className="py-2 px-3">Relation</th>
-                                                <th className="py-2 px-3">Share %</th>
-                                                <th className="py-2 px-3 text-right">Allocated Sum (₹)</th>
+                                                <th className="py-2.5 px-3">Nominee Name</th>
+                                                <th className="py-2.5 px-3">Beneficiary Code</th>
+                                                <th className="py-2.5 px-3">Relation</th>
+                                                <th className="py-2.5 px-3">Share %</th>
+                                                <th className="py-2.5 px-3 text-right">Allocated Sum (₹)</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-800/60">
+                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-sans">
                                             {nominees.map((n) => (
                                                 <tr key={n.id}>
-                                                    <td className="py-2 px-3 font-semibold text-slate-200">{n.nominee_name}</td>
-                                                    <td className="py-2 px-3 font-mono text-indigo-400">{n.beneficiary_code || '---'}</td>
-                                                    <td className="py-2 px-3 text-slate-400">{n.relationship}</td>
-                                                    <td className="py-2 px-3 font-mono">{n.share_percentage}%</td>
-                                                    <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
+                                                    <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-slate-200">{n.nominee_name}</td>
+                                                    <td className="py-2.5 px-3 font-mono text-indigo-600 dark:text-indigo-400">{n.beneficiary_code || '---'}</td>
+                                                    <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">{n.relationship}</td>
+                                                    <td className="py-2.5 px-3 font-mono">{n.share_percentage}%</td>
+                                                    <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
                                                         ₹ {Number(n.allocated_amount).toLocaleString('en-IN')}
                                                     </td>
                                                 </tr>
@@ -276,25 +276,25 @@ export default function Show({ authority, case_data, calculation, nominees, amou
                         )}
 
                         {/* Copy Forwarded */}
-                        <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1.5">
-                            <div className="font-bold text-slate-200 mb-1">Copy forwarded for information and necessary action to :-</div>
+                        <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 space-y-1.5 shadow-2xs">
+                            <div className="font-bold text-slate-900 dark:text-slate-200 mb-1">Copy forwarded for information and necessary action to :-</div>
                             <div>1. <strong>Treasury Officer</strong> - {case_data.treasury_name} ({case_data.treasury_code})</div>
                             <div>2. <strong>{case_data.ddo_designation}</strong> ({case_data.ddo_code})</div>
                             <div>3. <strong>{case_data.name_title} {case_data.subscriber_name_cache}</strong>, {case_data.designation}, {case_data.personal_address} (Mobile: {case_data.mobile_no || 'N/A'})</div>
                         </div>
 
                         {/* Digital Signature Seal */}
-                        <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+                        <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
                             <div className="text-[10px] text-slate-500 font-mono">
                                 Memo: {authority.authority_number}
                             </div>
 
                             {authority.is_signed && authority.digital_signature ? (
-                                <div className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs flex items-center gap-3">
-                                    <ShieldCheck className="w-6 h-6 text-teal-400" />
+                                <div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/30 text-teal-800 dark:text-teal-300 text-xs flex items-center gap-3 shadow-2xs">
+                                    <ShieldCheck className="w-6 h-6 text-teal-600 dark:text-teal-400" />
                                     <div>
-                                        <div className="font-bold">Digitally Certified by Senior Accounts Officer</div>
-                                        <div className="text-[11px] text-teal-400/80">
+                                        <div className="font-bold text-teal-900 dark:text-teal-200">Digitally Certified by Senior Accounts Officer</div>
+                                        <div className="text-[11px] text-teal-700/80 dark:text-teal-400/80">
                                             {authority.digital_signature.signatory_name} &bull; {authority.digital_signature.certificate_serial}
                                         </div>
                                     </div>
@@ -309,33 +309,33 @@ export default function Show({ authority, case_data, calculation, nominees, amou
                     </div>
                 ) : (
                     /* DLIS Preview Card */
-                    <div className="glass-panel p-8 rounded-2xl space-y-6 border border-slate-800 bg-slate-950/40">
-                        <div className="text-center border-b border-slate-800 pb-4">
-                            <div className="text-sm font-bold text-slate-200">
+                    <div className="glass-panel app-card p-8 rounded-2xl space-y-6 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/40 shadow-sm">
+                        <div className="text-center border-b border-slate-200 dark:border-slate-800 pb-4">
+                            <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
                                 महालेखाकार का कार्यालय (लेखा एवं हक), Tripura - Agartala
                             </div>
-                            <h1 className="text-base font-bold text-white mt-0.5 tracking-wide">
+                            <h1 className="text-base font-bold text-slate-900 dark:text-white mt-0.5 tracking-wide">
                                 OFFICE OF THE ACCOUNTANT GENERAL (A & E), TRIPURA ::: AGARTALA
                             </h1>
-                            <p className="text-[11px] text-cyan-400 mt-1 font-mono">
+                            <p className="text-[11px] text-cyan-700 dark:text-cyan-400 mt-1 font-mono font-semibold">
                                 DEPOSIT LINKED INSURANCE SCHEME (DLIS) SANCTION ORDER
                             </p>
                         </div>
 
-                        <div className="text-xs text-slate-300 leading-relaxed text-justify space-y-3 bg-slate-900/40 p-4 rounded-xl border border-slate-800/80">
+                        <div className="text-xs text-slate-800 dark:text-slate-300 leading-relaxed text-justify space-y-3 bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800/80">
                             <p>
-                                In pursuance of Govt. of Tripura Finance Department O.M. No. F.12(7)/FIN(G)/75 dated 18-02-76, the authorization for <strong className="text-cyan-300">₹ {Number(authority.dlis_amount || calculation?.dlis_amount || 0).toLocaleString('en-IN')}/- ({dlis_in_words})</strong> only is hereby accorded towards Deposit Linked Insurance Scheme to <strong className="text-white">{case_data.spouse_name || 'the eligible nominee'} ({case_data.spouse_relation || 'Spouse'})</strong> of Late <strong className="text-white">{case_data.name_title} {case_data.subscriber_name_cache}</strong>, <strong className="text-slate-200">{case_data.designation}</strong>, Account no. <strong className="text-cyan-300 font-mono">{case_data.formatted_gpf_account}</strong>.
+                                In pursuance of Govt. of Tripura Finance Department O.M. No. F.12(7)/FIN(G)/75 dated 18-02-76, the authorization for <strong className="text-cyan-700 dark:text-cyan-300">₹ {Number(authority.dlis_amount || calculation?.dlis_amount || 0).toLocaleString('en-IN')}/- ({dlis_in_words})</strong> only is hereby accorded towards Deposit Linked Insurance Scheme to <strong className="text-slate-900 dark:text-white">{case_data.spouse_name || 'the eligible nominee'} ({case_data.spouse_relation || 'Spouse'})</strong> of Late <strong className="text-slate-900 dark:text-white">{case_data.name_title} {case_data.subscriber_name_cache}</strong>, <strong className="text-slate-800 dark:text-slate-200">{case_data.designation}</strong>, Account no. <strong className="text-cyan-700 dark:text-cyan-300 font-mono">{case_data.formatted_gpf_account}</strong>.
                             </p>
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                 2. The payment is debitable to the head of account <strong>2235- Social Security and welfare, 60 other Social Security and Welfare programme, 104 - Deposit Linked Insurance Scheme Govt. Provident Fund</strong>.
                             </p>
-                            <p className="text-[11px] text-slate-400">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                 3. The authority shall remain valid for six months from the date of issue.
                             </p>
                         </div>
 
-                        <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-1.5">
-                            <div className="font-bold text-slate-200 mb-1">Copy forwarded for information and necessary action to :-</div>
+                        <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-300 space-y-1.5 shadow-2xs">
+                            <div className="font-bold text-slate-900 dark:text-slate-200 mb-1">Copy forwarded for information and necessary action to :-</div>
                             <div>1. <strong>Treasury Officer</strong> - {case_data.treasury_name} ({case_data.treasury_code})</div>
                             <div>2. <strong>{case_data.ddo_designation}</strong> ({case_data.ddo_code})</div>
                             <div>3. <strong>{case_data.spouse_name || case_data.subscriber_name_cache}</strong>, {case_data.designation}, {case_data.personal_address}</div>
@@ -345,34 +345,34 @@ export default function Show({ authority, case_data, calculation, nominees, amou
 
                 {/* USB DSC Token Handshake Modal */}
                 {signModalOpen && (
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-                        <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-slate-800 space-y-5">
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                                    <Key className="w-4 h-4 text-emerald-400" />
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+                        <div className="glass-panel app-card max-w-md w-full p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-5 shadow-2xl">
+                            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                    <Key className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                     <span>Hardware USB Token (DSC) Handshake</span>
                                 </h3>
                                 <button
                                     onClick={() => setSignModalOpen(false)}
-                                    className="text-slate-500 hover:text-white"
+                                    className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-lg font-bold"
                                 >
                                     &times;
                                 </button>
                             </div>
 
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
                                 Connect your authorized USB Crypto Token (ePass2003 / Watchdata) to certify this payment order.
                             </p>
 
                             <form onSubmit={handleDscSign} className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                                         Detected Token / Certificate
                                     </label>
                                     <select
                                         value={token}
                                         onChange={(e) => setToken(e.target.value)}
-                                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-100"
+                                        className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:ring-2 focus:ring-emerald-500"
                                     >
                                         <option value="ePass2003 / Auto Token">ePass2003 - Sr. Accounts Officer (Valid till 2028)</option>
                                         <option value="NIC Crypto Token">NIC Standard Token - Treasury Cell</option>
@@ -380,15 +380,15 @@ export default function Show({ authority, case_data, calculation, nominees, amou
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-300 mb-1">
-                                        Token User PIN <span className="text-rose-400">*</span>
+                                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                        Token User PIN <span className="text-rose-500">*</span>
                                     </label>
                                     <input
                                         type="password"
                                         value={pin}
                                         onChange={(e) => setPin(e.target.value)}
                                         placeholder="••••••••"
-                                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-100 font-mono tracking-widest"
+                                        className="w-full px-3 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 font-mono tracking-widest shadow-2xs focus:ring-2 focus:ring-emerald-500"
                                         required
                                     />
                                 </div>
@@ -397,14 +397,14 @@ export default function Show({ authority, case_data, calculation, nominees, amou
                                     <button
                                         type="button"
                                         onClick={() => setSignModalOpen(false)}
-                                        className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300"
+                                        className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={isSigning || pin.length < 4}
-                                        className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/25 disabled:opacity-50 flex items-center gap-2"
+                                        className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/25 disabled:opacity-50 flex items-center gap-2 transition"
                                     >
                                         {isSigning ? (
                                             <>

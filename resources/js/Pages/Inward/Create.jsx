@@ -143,15 +143,15 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                     <div className="flex items-center gap-3">
                         <Link
                             href="/inward"
-                            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition"
+                            className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-700 transition shadow-2xs"
                         >
                             <ArrowLeft className="w-4 h-4" />
                         </Link>
                         <div>
-                            <h2 className="text-xl font-bold tracking-tight text-white">
+                            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
                                 Register New GPF Inward Docket
                             </h2>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                 Enter subscriber details or fetch directly from Oracle 11g VLC (VLCS.GP_ACCOUNTS / VLCS.STATE_DDO).
                             </p>
                         </div>
@@ -159,12 +159,12 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                 </div>
 
                 {Object.keys(errors).length > 0 && (
-                    <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 animate-fadeIn space-y-1">
-                        <div className="flex items-center gap-2 font-bold text-rose-400 text-xs">
+                    <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-300 animate-fadeIn space-y-1 shadow-2xs">
+                        <div className="flex items-center gap-2 font-bold text-rose-700 dark:text-rose-400 text-xs">
                             <ShieldAlert className="w-4 h-4" />
                             <span>Please resolve the following before registering the docket:</span>
                         </div>
-                        <ul className="list-disc list-inside text-xs space-y-0.5 text-rose-200/90 pl-1">
+                        <ul className="list-disc list-inside text-xs space-y-0.5 text-rose-700/90 dark:text-rose-200/90 pl-1">
                             {Object.entries(errors).map(([field, msg]) => (
                                 <li key={field}><strong>{field.replace(/_/g, ' ').toUpperCase()}:</strong> {msg}</li>
                             ))}
@@ -173,39 +173,39 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                 )}
 
                 {closureWarning && (
-                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-amber-300 animate-fadeIn">
-                        <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-400" />
+                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 flex items-start gap-3 text-amber-800 dark:text-amber-300 animate-fadeIn shadow-2xs">
+                        <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
                         <div>
                             <p className="text-sm font-semibold">Account Closure Alert</p>
-                            <p className="text-xs text-amber-200/90">{closureWarning}</p>
-                            <p className="text-[11px] text-amber-400/70 mt-1">If this is a residual, revised or corrigendum case, please set the appropriate Case Settlement Type below.</p>
+                            <p className="text-xs text-amber-800/90 dark:text-amber-200/90">{closureWarning}</p>
+                            <p className="text-[11px] text-amber-700 dark:text-amber-400/70 mt-1 font-medium">If this is a residual, revised or corrigendum case, please set the appropriate Case Settlement Type below.</p>
                         </div>
                     </div>
                 )}
 
                 {balanceInfo && (
-                    <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-between text-indigo-300">
+                    <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-between text-indigo-800 dark:text-indigo-300 shadow-2xs">
                         <div className="flex items-center gap-2">
-                            <Coins className="w-4 h-4 text-indigo-400" />
+                            <Coins className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                             <span className="text-xs font-semibold">Legacy VLC Master Ledger Record:</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs">
-                            <span>Opening Balance: <strong className="text-white font-mono">₹{balanceInfo.opBalance.toLocaleString('en-IN')}</strong></span>
-                            <span>Closing Balance: <strong className="text-emerald-400 font-mono">₹{balanceInfo.clBalance.toLocaleString('en-IN')}</strong></span>
+                            <span>Opening Balance: <strong className="text-slate-900 dark:text-white font-mono">₹{balanceInfo.opBalance.toLocaleString('en-IN')}</strong></span>
+                            <span>Closing Balance: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">₹{balanceInfo.clBalance.toLocaleString('en-IN')}</strong></span>
                         </div>
                     </div>
                 )}
 
                 <form onSubmit={submit} className="space-y-6">
                     {/* Step 1: GPF Series & Account Lookup */}
-                    <div className="glass-panel p-6 rounded-2xl space-y-4">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                            <h3 className="text-sm font-bold text-indigo-400 flex items-center gap-2">
+                    <div className="glass-panel app-card bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl space-y-4 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                            <h3 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
                                 <Sparkles className="w-4 h-4" />
                                 <span>1. Legacy Oracle 11g Account Lookup (VLCS.GP_ACCOUNTS)</span>
                             </h3>
                             {lookupFound && (
-                                <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                                     <CheckCircle2 className="w-3.5 h-3.5" />
                                     <span>Profile Matched</span>
                                 </span>
@@ -214,8 +214,8 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                                    GPF Series <span className="text-rose-400">*</span>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                    GPF Series <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.series_code}
@@ -227,7 +227,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                             series_name: selected?.code || selected?.name || '',
                                         }));
                                     }}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 >
                                     <option value="">Select GPF Series</option>
@@ -237,22 +237,22 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                         </option>
                                     ))}
                                 </select>
-                                {errors.series_code && <p className="text-rose-400 text-[10px] mt-1">{errors.series_code}</p>}
+                                {errors.series_code && <p className="text-rose-500 text-[10px] mt-1">{errors.series_code}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                                    Account Number <span className="text-rose-400">*</span>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                    Account Number <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     value={data.account_no}
                                     onChange={(e) => setData('account_no', e.target.value)}
                                     placeholder="e.g. 5937"
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono font-semibold"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono font-semibold"
                                     required
                                 />
-                                {errors.account_no && <p className="text-rose-400 text-[10px] mt-1">{errors.account_no}</p>}
+                                {errors.account_no && <p className="text-rose-500 text-[10px] mt-1">{errors.account_no}</p>}
                             </div>
 
                             <div className="flex items-end">
@@ -260,7 +260,7 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                     type="button"
                                     onClick={handleLookup}
                                     disabled={isLookingUp}
-                                    className="w-full py-2 px-3 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition disabled:opacity-50"
+                                    className="w-full py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition disabled:opacity-50 shadow-md shadow-indigo-600/20"
                                 >
                                     <Search className="w-3.5 h-3.5" />
                                     <span>{isLookingUp ? 'Searching Oracle...' : 'Fetch Subscriber'}</span>
@@ -270,21 +270,21 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                     </div>
 
                     {/* Step 2: Subscriber Demographics */}
-                    <div className="glass-panel p-6 rounded-2xl space-y-4">
-                        <div className="border-b border-slate-800 pb-3">
-                            <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-                                <User className="w-4 h-4 text-indigo-400" />
+                    <div className="glass-panel app-card bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl space-y-4 shadow-sm">
+                        <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 flex items-center gap-2">
+                                <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                                 <span>2. Subscriber Profile & Demographics</span>
                             </h3>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">Salutation</label>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Salutation</label>
                                 <select
                                     value={data.name_title}
                                     onChange={(e) => setData('name_title', e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 >
                                     <option value="Shri">Shri</option>
                                     <option value="Smt">Smt</option>
@@ -294,72 +294,72 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                             </div>
 
                             <div className="sm:col-span-2">
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                                    Full Name <span className="text-rose-400">*</span>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                    Full Name <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     value={data.subscriber_name}
                                     onChange={(e) => setData('subscriber_name', e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
                                     required
                                 />
-                                {errors.subscriber_name && <p className="text-rose-400 text-[10px] mt-1">{errors.subscriber_name}</p>}
+                                {errors.subscriber_name && <p className="text-rose-500 text-[10px] mt-1">{errors.subscriber_name}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                                    Designation <span className="text-rose-400">*</span>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                    Designation <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     value={data.designation}
                                     onChange={(e) => setData('designation', e.target.value)}
                                     placeholder="e.g. Senior Teacher"
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 />
-                                {errors.designation && <p className="text-rose-400 text-[10px] mt-1">{errors.designation}</p>}
+                                {errors.designation && <p className="text-rose-500 text-[10px] mt-1">{errors.designation}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                                    Case Settlement Type <span className="text-rose-400">*</span>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                    Case Settlement Type <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.case_type}
                                     onChange={(e) => handleCaseTypeChange(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                                 >
                                     {case_types.map((t) => (
                                         <option key={t.id} value={t.id}>{t.name}</option>
                                     ))}
                                 </select>
-                                {errors.case_type && <p className="text-rose-400 text-[10px] mt-1">{errors.case_type}</p>}
+                                {errors.case_type && <p className="text-rose-500 text-[10px] mt-1">{errors.case_type}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                                    Event / Retirement Date <span className="text-rose-400">*</span>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                    Event / Retirement Date <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="date"
                                     value={data.event_date}
                                     onChange={(e) => setData('event_date', e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 />
-                                {errors.event_date && <p className="text-rose-400 text-[10px] mt-1 font-semibold">{errors.event_date}</p>}
+                                {errors.event_date && <p className="text-rose-500 text-[10px] mt-1 font-semibold">{errors.event_date}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                                    Pension / Closure Category <span className="text-rose-400">*</span>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                    Pension / Closure Category <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.pension_type_id}
                                     onChange={(e) => setData('pension_type_id', e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                                     required
                                 >
                                     {pension_types && pension_types.length > 0 ? (
@@ -380,15 +380,15 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                         </>
                                     )}
                                 </select>
-                                {errors.pension_type_id && <p className="text-rose-400 text-[10px] mt-1">{errors.pension_type_id}</p>}
+                                {errors.pension_type_id && <p className="text-rose-500 text-[10px] mt-1">{errors.pension_type_id}</p>}
                             </div>
 
                             {(data.case_type === 'FAM' || data.pension_type_id === '2') && (
-                                <div className="sm:col-span-3 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2.5">
-                                    <ShieldAlert className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                                <div className="sm:col-span-3 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-2.5 shadow-2xs">
+                                    <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
                                     <div>
-                                        <p className="font-semibold text-rose-200">Family Pension (FAM) Settlement Active</p>
-                                        <p className="text-[11px] text-rose-300/80 mt-0.5">
+                                        <p className="font-semibold text-rose-900 dark:text-rose-200">Family Pension (FAM) Settlement Active</p>
+                                        <p className="text-[11px] text-rose-700/80 dark:text-rose-300/80 mt-0.5">
                                             Admissible for Deposit-Linked Insurance Scheme (DLIS up to ₹60,000) and 6-month statutory interest window post-demise. Final authority and payment will be addressed to the designated nominee/spouse.
                                         </p>
                                     </div>
@@ -396,55 +396,55 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                             )}
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">HRMS Employee Code</label>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">HRMS Employee Code</label>
                                 <input
                                     type="text"
                                     value={data.employee_code}
                                     onChange={(e) => setData('employee_code', e.target.value)}
                                     placeholder="e.g. 106356"
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">Beneficiary Code</label>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Beneficiary Code</label>
                                 <input
                                     type="text"
                                     value={data.beneficiary_code}
                                     onChange={(e) => setData('beneficiary_code', e.target.value)}
                                     placeholder="e.g. 216984"
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">Mobile No (SMS Alerts)</label>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Mobile No (SMS Alerts)</label>
                                 <input
                                     type="text"
                                     value={data.mobile_no}
                                     onChange={(e) => setData('mobile_no', e.target.value)}
                                     placeholder="e.g. 9862523603"
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">Spouse / Father Name</label>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Spouse / Father Name</label>
                                 <input
                                     type="text"
                                     value={data.spouse_name}
                                     onChange={(e) => setData('spouse_name', e.target.value)}
                                     placeholder="Spouse or Legal Next of Kin"
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">Relation</label>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Relation</label>
                                 <select
                                     value={data.spouse_relation}
                                     onChange={(e) => setData('spouse_relation', e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 >
                                     <option value="Spouse">Spouse (Husband / Wife)</option>
                                     <option value="Father">Father</option>
@@ -456,40 +456,40 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                             </div>
 
                             <div className="sm:col-span-3">
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                                    Personal Residential Address <span className="text-rose-400">*</span>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                    Personal Residential Address <span className="text-rose-500">*</span>
                                 </label>
                                 <textarea
                                     value={data.personal_address}
                                     onChange={(e) => setData('personal_address', e.target.value)}
                                     rows={2}
                                     placeholder="Full mailing address for authority dispatch"
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 />
-                                {errors.personal_address && <p className="text-rose-400 text-[10px] mt-1">{errors.personal_address}</p>}
+                                {errors.personal_address && <p className="text-rose-500 text-[10px] mt-1">{errors.personal_address}</p>}
                             </div>
                         </div>
                     </div>
 
                     {/* Step 3: DDO & Treasury Linkage */}
-                    <div className="glass-panel p-6 rounded-2xl space-y-4">
-                        <div className="border-b border-slate-800 pb-3">
-                            <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-                                <Building2 className="w-4 h-4 text-indigo-400" />
+                    <div className="glass-panel app-card bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl space-y-4 shadow-sm">
+                        <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 flex items-center gap-2">
+                                <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                                 <span>3. Drawing & Disbursing Officer (DDO) & Treasury (VLCS.STATE_DDO)</span>
                             </h3>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                                    DDO Code & Designation <span className="text-rose-400">*</span>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                    DDO Code & Designation <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.ddo_code}
                                     onChange={(e) => handleDdoChange(e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 >
                                     <option value="">Select DDO</option>
@@ -497,17 +497,17 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                         <option key={d.id} value={d.id}>{d.id} - {d.name}</option>
                                     ))}
                                 </select>
-                                {errors.ddo_code && <p className="text-rose-400 text-[10px] mt-1">{errors.ddo_code}</p>}
+                                {errors.ddo_code && <p className="text-rose-500 text-[10px] mt-1">{errors.ddo_code}</p>}
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                                    Treasury / Sub-Treasury <span className="text-rose-400">*</span>
+                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                                    Treasury / Sub-Treasury <span className="text-rose-500">*</span>
                                 </label>
                                 <select
                                     value={data.treasury_code}
                                     onChange={(e) => setData('treasury_code', e.target.value)}
-                                    className="w-full px-3 py-2 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 bg-white dark:bg-slate-900/80 border border-slate-300 dark:border-slate-700/80 rounded-xl text-xs text-slate-900 dark:text-slate-100 shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     required
                                 >
                                     <option value="">Select Treasury</option>
@@ -515,22 +515,22 @@ export default function Create({ series_list, ddo_list, treasuries, case_types, 
                                         <option key={t.id} value={t.id}>{t.id} - {t.name}</option>
                                     ))}
                                 </select>
-                                {errors.treasury_code && <p className="text-rose-400 text-[10px] mt-1">{errors.treasury_code}</p>}
+                                {errors.treasury_code && <p className="text-rose-500 text-[10px] mt-1">{errors.treasury_code}</p>}
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-end gap-3">
+                    <div className="flex items-center justify-end gap-3 pt-2">
                         <Link
                             href="/inward"
-                            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition"
+                            className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition border border-slate-200 dark:border-slate-700 shadow-2xs"
                         >
                             Cancel
                         </Link>
                         <button
                             type="submit"
                             disabled={processing}
-                            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"
+                            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold shadow-md shadow-indigo-600/25 transition disabled:opacity-50"
                         >
                             {processing ? 'Registering...' : 'Register Inward Case'}
                         </button>
