@@ -117,7 +117,7 @@ if (Test-Path $ensureScript) {
 }
 
 $deployUrl = "http://$TargetHost/api/v1/system/deploy"
-$directDeployUrl = "http://$TargetHost:8082/api/v1/system/deploy"
+$directDeployUrl = "http://${TargetHost}:8082/api/v1/system/deploy"
 $headers = @{
     "X-Deploy-Token" = $DeployToken
     "Accept"         = "application/json"
@@ -158,7 +158,7 @@ try {
     try {
         $healthCheck = Invoke-RestMethod -Uri "http://$TargetHost/api/v1/system/status" -Headers @{ "X-Deploy-Token" = $DeployToken; "Host" = "gpffp.local" } -TimeoutSec 10
     } catch {
-        $healthCheck = Invoke-RestMethod -Uri "http://$TargetHost:8082/api/v1/system/status" -Headers @{ "X-Deploy-Token" = $DeployToken } -TimeoutSec 10
+        $healthCheck = Invoke-RestMethod -Uri "http://${TargetHost}:8082/api/v1/system/status" -Headers @{ "X-Deploy-Token" = $DeployToken } -TimeoutSec 10
     }
     Write-Host @"
 -------------------------------------------------------------------------------
@@ -177,12 +177,12 @@ try {
 } catch {
     Write-Host "Testing HTTP connection on http://$TargetHost/login..." -ForegroundColor Gray
     try {
-        $res = Invoke-WebRequest -Uri "http://$TargetHost:8082/login" -Method Get -TimeoutSec 5 -UseBasicParsing
+        $res = Invoke-WebRequest -Uri "http://${TargetHost}:8082/login" -Method Get -TimeoutSec 5 -UseBasicParsing
         if ($res.StatusCode -eq 200) {
-            Write-Success "Portal is ONLINE and responsive at direct port http://$TargetHost:8082/login!"
+            Write-Success "Portal is ONLINE and responsive at direct port http://${TargetHost}:8082/login!"
         }
     } catch {
-        Write-Fail "Could not reach portal at http://$TargetHost:8082. Please check if Docker is running."
+        Write-Fail "Could not reach portal at http://${TargetHost}:8082. Please check if Docker is running."
     }
 }
 
