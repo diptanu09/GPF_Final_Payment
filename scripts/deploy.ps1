@@ -107,23 +107,35 @@ try {
 }
 
 # ------------------------------------------------------------------------------
-# Step 4: Trigger Remote Deployment Webhook on 10.47.240.169
+# Step 4: Ensure Remote Container is Running & Trigger Deployment Webhook
 # ------------------------------------------------------------------------------
-Write-Step "Step 4: Triggering Remote Deployment on http://$TargetHost..."
+Write-Step "Step 4: Ensuring Container is Running on $TargetHost..."
+
+$ensureScript = Join-Path $PSScriptRoot "ensure-container.py"
+if (Test-Path $ensureScript) {
+    python $ensureScript
+}
 
 $deployUrl = "http://$TargetHost/api/v1/system/deploy"
+$directDeployUrl = "http://$TargetHost:8082/api/v1/system/deploy"
 $headers = @{
     "X-Deploy-Token" = $DeployToken
     "Accept"         = "application/json"
     "Content-Type"   = "application/json"
+    "Host"           = "gpffp.local"
 }
 $body = @{
     action = "full"
 } | ConvertTo-Json
 
 try {
-    Write-Host "Sending deployment signal to $deployUrl..." -ForegroundColor Gray
-    $response = Invoke-RestMethod -Uri $deployUrl -Method Post -Headers $headers -Body $body -TimeoutSec 30
+    Write-Host "Sending deployment signal to $deployUrl (via shared gateway Host: gpffp.local)..." -ForegroundColor Gray
+    try {
+        $response = Invoke-RestMethod -Uri $deployUrl -Method Post -Headers $headers -Body $body -TimeoutSec 30
+    } catch {
+        Write-Host "Gateway route failed, attempting direct container port 8082..." -ForegroundColor Gray
+        $response = Invoke-RestMethod -Uri $directDeployUrl -Method Post -Headers $headers -Body $body -TimeoutSec 30
+    }
     
     if ($response.success) {
         Write-Success "Remote deployment executed successfully!"
@@ -143,7 +155,11 @@ try {
 # ------------------------------------------------------------------------------
 Write-Step "Step 5: Verifying Remote Health on http://$TargetHost..."
 try {
-    $healthCheck = Invoke-RestMethod -Uri "http://$TargetHost/api/v1/system/status" -Headers @{ "X-Deploy-Token" = $DeployToken } -TimeoutSec 10
+    try {
+        $healthCheck = Invoke-RestMethod -Uri "http://$TargetHost/api/v1/system/status" -Headers @{ "X-Deploy-Token" = $DeployToken; "Host" = "gpffp.local" } -TimeoutSec 10
+    } catch {
+        $healthCheck = Invoke-RestMethod -Uri "http://$TargetHost:8082/api/v1/system/status" -Headers @{ "X-Deploy-Token" = $DeployToken } -TimeoutSec 10
+    }
     Write-Host @"
 -------------------------------------------------------------------------------
   REMOTE CONTAINER STATUS:
@@ -161,12 +177,12 @@ try {
 } catch {
     Write-Host "Testing HTTP connection on http://$TargetHost/login..." -ForegroundColor Gray
     try {
-        $res = Invoke-WebRequest -Uri "http://$TargetHost/login" -Method Get -TimeoutSec 5 -UseBasicParsing
+        $res = Invoke-WebRequest -Uri "http://$TargetHost:8082/login" -Method Get -TimeoutSec 5 -UseBasicParsing
         if ($res.StatusCode -eq 200) {
-            Write-Success "Portal is ONLINE and responsive at http://$TargetHost/login!"
+            Write-Success "Portal is ONLINE and responsive at direct port http://$TargetHost:8082/login!"
         }
     } catch {
-        Write-Fail "Could not reach portal at http://$TargetHost. Please check if Docker is running."
+        Write-Fail "Could not reach portal at http://$TargetHost:8082. Please check if Docker is running."
     }
 }
 
